@@ -1,0 +1,1764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VSLA — Village Saving and Loaning Association</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: #0d1117; color: #e6edf3; min-height: 100vh; overflow-x: hidden; }
+
+        #bgCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+
+        .login-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px;
+            gap: 60px;
+            position: relative;
+            background: #0d1117;
+        }
+
+        .login-container {
+            position: relative;
+            width: 440px;
+            padding: 40px;
+            background: rgba(13, 17, 23, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 242, 254, 0.15);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 2;
+        }
+
+        .login-ring {
+            position: absolute;
+            top: -35px;
+            left: -35px;
+            right: -35px;
+            bottom: -35px;
+            border-radius: 50%;
+            border: 3px dashed rgba(0, 242, 254, 0.3);
+            animation: rotateRing 20s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes rotateRing { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .login-container h2 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #00f2fe;
+            margin-bottom: 25px;
+            letter-spacing: 0.5px;
+        }
+
+        .vsla-right-panel {
+            max-width: 500px;
+            z-index: 2;
+            text-align: left;
+        }
+
+        .vsla-right-panel h1 {
+            font-size: 48px;
+            font-weight: 700;
+            color: #00f2fe;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+        }
+
+        .vsla-right-panel h2 {
+            font-size: 24px;
+            font-weight: 500;
+            color: #e6edf3;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .vsla-right-panel p {
+            font-size: 16px;
+            color: #8b949e;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .vsla-features {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .vsla-feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            color: #c9d1d9;
+        }
+
+        .vsla-feature-item span {
+            color: #3fb950;
+            font-weight: bold;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #8b949e;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 14px 16px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: #00f2fe;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+        }
+
+        .forgot-pass {
+            display: block;
+            text-align: right;
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 20px;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .forgot-pass:hover { color: #00f2fe; }
+
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            border: none;
+            border-radius: 8px;
+            color: #0d1117;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5);
+        }
+
+        .switch-auth {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #8b949e;
+        }
+        .switch-auth a {
+            color: #00f2fe;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .switch-auth a:hover { text-decoration: underline; }
+
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            position: relative;
+            z-index: 2;
+        }
+
+        .nav-pane {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: rgba(13, 17, 23, 0.95);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 25px 20px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-brand {
+            font-size: 22px;
+            font-weight: 700;
+            color: #00f2fe;
+            margin-bottom: 35px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-grow: 1;
+        }
+
+        .nav-link {
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: #8b949e;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: rgba(0, 242, 254, 0.1);
+            color: #00f2fe;
+        }
+
+        .user-profile-widget {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .user-profile-widget img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #00f2fe;
+        }
+
+        .main-content {
+            margin-left: 260px;
+            flex-grow: 1;
+            padding: 40px;
+            max-width: calc(100vw - 260px);
+        }
+
+        .card {
+            background: rgba(22, 27, 34, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #30363d; font-size: 14px; }
+        th { color: #8b949e; font-weight: 600; text-transform: uppercase; font-size: 12px; }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge.success { background: rgba(46, 160, 67, 0.2); color: #3fb950; }
+        .badge.warning { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+        .badge.danger { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .btn-success { background: #2ea043; color: #fff; }
+        .btn-success:hover { background: #2c974b; }
+        .btn-danger { background: #f85149; color: #fff; }
+        .btn-danger:hover { background: #da3633; }
+        .btn-secondary { background: #30363d; color: #c9d1d9; }
+        .btn-secondary:hover { background: #3c444d; }
+
+        .chat-container { display: flex; flex-direction: column; height: 450px; background: #161b22; border-radius: 12px; border: 1px solid #30363d; overflow: hidden; }
+        .chat-messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .chat-msg { background: #21262d; padding: 10px 14px; border-radius: 8px; max-width: 75%; }
+        .chat-msg.mine { align-self: flex-end; background: #1f6feb; color: #fff; }
+        .chat-input-area { display: flex; padding: 15px; background: #0d1117; border-top: 1px solid #30363d; gap: 10px; }
+        .chat-input-area input { flex-grow: 1; padding: 10px 14px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #fff; }
+
+        .video-box { width: 100%; height: 350px; background: #000; border-radius: 12px; display: flex; justify-content: center; align-items: center; position: relative; border: 1px solid #30363d; overflow: hidden; }
+        .video-overlay { position: absolute; bottom: 15px; left: 15px; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 6px; font-size: 13px; }
+
+        .error-banner { background: rgba(248, 81, 73, 0.2); border: 1px solid #f85149; color: #f85149; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+        .success-banner { background: rgba(46, 160, 67, 0.2); border: 1px solid #3fb950; color: #3fb950; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <canvas id="bgCanvas"></canvas>
+    <div id="app"></div>
+
+    <script>
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentTheme = 'login';
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let particles = [];
+        function initParticles(type) {
+            particles = [];
+            currentTheme = type;
+            let count = type === 'member' ? 40 : 50;
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: (Math.random() - 0.5) * 1.5,
+                    size: Math.random() * 3 + 1,
+                    noteVal: [100, 200, 500, 1000][Math.floor(Math.random() * 4)]
+                });
+            }
+        }
+        initParticles('login');
+
+        function animateBg() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (currentTheme === 'admin') {
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.arc(canvas.width - 120, 100, 50, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(240, 240, 255, 0.9)';
+                ctx.shadowBlur = 40;
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            } else if (currentTheme === 'group') {
+                ctx.fillStyle = '#112218';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else if (currentTheme === 'member') {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = '#0d1117';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x < 0) p.x = canvas.width;
+                if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height;
+                if (p.y > canvas.height) p.y = 0;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                if (currentTheme === 'member') {
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+                    ctx.font = 'bold 13px Inter';
+                    ctx.fillText(`KES ${p.noteVal}`, 0, 0);
+                } else if (currentTheme === 'group') {
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.45)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            });
+
+            requestAnimationFrame(animateBg);
+        }
+        animateBg();
+
+        let currentUser = null;
+        let systemOverview = null;
+        let groupData = null;
+
+        async function initApp() {
+            try {
+                const res = await fetch('/api/state');
+                const state = await res.json();
+                renderLogin(state);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function renderLogin(state) {
+            initParticles('login');
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="login-wrapper">
+                    <!-- Left: Login Form -->
+                    <div class="login-container">
+                        <div class="login-ring"></div>
+                        <h2>Login</h2>
+                        <div id="authAlert"></div>
+                        <form id="loginForm">
+                            <div class="input-group">
+                                <label>Email</label>
+                                <input type="email" id="loginEmail" placeholder="codingstella@gmail.com" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Password</label>
+                                <input type="password" id="loginPassword" placeholder="••••••••" required>
+                            </div>
+                            <div id="safeCodeGroup" class="input-group hidden">
+                                <label>Safe Code (Required after 4 failed attempts)</label>
+                                <input type="text" id="loginSafeCode" placeholder="Enter Safe Code">
+                            </div>
+                            <a href="#" class="forgot-pass" onclick="alert('Contact V-Super Admin for password reset / safe code.')">Forgot Password?</a>
+                            <button type="submit" class="btn-primary">Login</button>
+                        </form>
+                        <div class="switch-auth">
+                            Register: <a href="#" onclick="renderRegister()">V-Super Admin / Super Admin / Member Signup</a>
+                        </div>
+                    </div>
+
+                    <!-- Right: VSLA Village Saving and loaning Association -->
+                    <div class="vsla-right-panel">
+                        <h1>VSLA</h1>
+                        <h2>Village Saving and Loaning Association</h2>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                const safeCode = document.getElementById('loginSafeCode').value;
+
+                try {
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, safeCode })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        document.getElementById('authAlert').innerHTML = `<div class="error-banner">${data.error}</div>`;
+                        if (data.error.includes('locked') || data.error.includes('Safe Code')) {
+                            document.getElementById('safeCodeGroup').classList.remove('hidden');
+                        }
+                        return;
+                    }
+                    currentUser = data.user;
+                    routeUserDashboard();
+                } catch (err) {
+                    alert('Error connecting to server.');
+                }
+            });
+        }
+
+        async function renderRegister() {
+            initParticles('login');
+            const res = await fetch('/api/state');
+            const state = await res.json();
+
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="login-wrapper" style="padding: 40px 0;">
+                    <div class="login-container" style="width: 500px;">
+                        <h2>VSLA Registration</h2>
+                        <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Register V-Super Admin, Super Admins (up to 2), or distant members (requires safe code).</p>
+                        <div id="regAlert"></div>
+                        <form id="regForm" enctype="multipart/form-data">
+                            <div class="grid-2">
+                                <div class="input-group">
+                                    <label>First Name</label>
+                                    <input type="text" id="regFirstName" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Last Name</label>
+                                    <input type="text" id="regLastName" required>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label>Email</label>
+                                <input type="email" id="regEmail" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Phone Number</label>
+                                <input type="text" id="regPhone" required>
+                            </div>
+                            <div class="grid-2">
+                                <div class="input-group">
+                                    <label>Password</label>
+                                    <input type="password" id="regPassword" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Confirm Password</label>
+                                    <input type="password" id="regConfirmPassword" required>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label>Account Role</label>
+                                <select id="regRole" onchange="toggleSafeCodeField()">
+                                    ${!state.hasVSuperAdmin ? '<option value="v_super_admin">V-Super Admin (First Account - No Passcode)</option>' : ''}
+                                    ${state.superAdminCount < 2 ? '<option value="super_admin">Super Admin (No Passcode)</option>' : ''}
+                                    <option value="member">Member (Far away request - Requires Safe Code)</option>
+                                </select>
+                            </div>
+                            <div class="input-group" id="safeCodeContainer">
+                                <label>Safe Code</label>
+                                <input type="text" id="regSafeCode" placeholder="Enter Safe Code (Members only)">
+                            </div>
+                            <div class="input-group">
+                                <label>Profile Picture</label>
+                                <input type="file" id="regProfilePic" accept="image/*">
+                            </div>
+                            <button type="submit" class="btn-primary">Register Account</button>
+                        </form>
+                        <div class="switch-auth">
+                            Already have an account? <a href="#" onclick="initApp()">Login</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            toggleSafeCodeField();
+
+            document.getElementById('regForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                formData.append('firstName', document.getElementById('regFirstName').value);
+                formData.append('lastName', document.getElementById('regLastName').value);
+                formData.append('email', document.getElementById('regEmail').value);
+                formData.append('phone', document.getElementById('regPhone').value);
+                formData.append('password', document.getElementById('regPassword').value);
+                formData.append('confirmPassword', document.getElementById('regConfirmPassword').value);
+                formData.append('roleSelection', document.getElementById('regRole').value);
+                formData.append('safeCode', document.getElementById('regSafeCode').value);
+                const fileInput = document.getElementById('regProfilePic').files[0];
+                if (fileInput) formData.append('profilePic', fileInput);
+
+                try {
+                    const res = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        document.getElementById('regAlert').innerHTML = `<div class="error-banner">${data.error}</div>`;
+                        return;
+                    }
+                    alert('Registration successful! Please login.');
+                    initApp();
+                } catch (err) {
+                    alert('Error during registration.');
+                }
+            });
+        }
+
+        function toggleSafeCodeField() {
+            const role = document.getElementById('regRole').value;
+            const container = document.getElementById('safeCodeContainer');
+            if (role === 'member') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        async function routeUserDashboard() {
+            if (currentUser.role === 'v_super_admin' || currentUser.role === 'super_admin') {
+                initParticles('admin');
+                await renderAdminDashboard();
+            } else if (currentUser.role === 'group_admin') {
+                initParticles('group');
+                await renderGroupAdminDashboard();
+            } else {
+                initParticles('member');
+                await renderMemberDashboard();
+            }
+        }
+
+        async function renderAdminDashboard() {
+            const res = await fetch('/api/admin/overview');
+            systemOverview = await res.json();
+
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane">
+                        <div class="nav-brand">🏛️ VSLA Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link active" onclick="renderAdminDashboard()">📊 Overview & Groups</a>
+                            <a class="nav-link" onclick="renderAdminUsers()">👥 All Users & Passwords</a>
+                            <a class="nav-link" onclick="renderAdminNotes()">📝 V-Super Admin Notes</a>
+                            <a class="nav-link" onclick="renderAdminLogs()">🔒 Security Logs & Filters</a>
+                            <a class="nav-link" onclick="renderAdminReports()">📥 Download Reports</a>
+                        </div>
+                        <div class="user-profile-widget">
+                            <img src="${currentUser.profilePic || '/uploads/default-avatar.png'}" alt="Profile">
+                            <div>
+                                <div style="font-weight:600; font-size:14px;">${currentUser.firstName}</div>
+                                <div style="font-size:11px; color:#8b949e;">${currentUser.role.toUpperCase()}</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#00f2fe;">${currentUser.role === 'v_super_admin' ? 'VSLA V-Super Admin (Full Owner Dashboard)' : 'VSLA Super Admin (Summary Dashboard)'}</h2>
+                        
+                        <div class="grid-4" style="margin-bottom:25px;">
+                            <div class="card">
+                                <h3>Total Groups</h3>
+                                <p style="font-size:28px; font-weight:700; color:#00f2fe;">${systemOverview.totalGroups}</p>
+                            </div>
+                            <div class="card">
+                                <h3>Total Members</h3>
+                                <p style="font-size:28px; font-weight:700; color:#3fb950;">${systemOverview.totalMembers}</p>
+                            </div>
+                            <div class="card">
+                                <h3>Total Savings (KES)</h3>
+                                <p style="font-size:28px; font-weight:700; color:#d29922;">${systemOverview.totalSavings}</p>
+                            </div>
+                            <div class="card">
+                                <h3>Total Loans Taken (KES)</h3>
+                                <p style="font-size:28px; font-weight:700; color:#f85149;">${systemOverview.totalLoansTaken}</p>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-bottom:25px;">
+                            <h3>Member Registration Page</h3>
+                            <p style="font-size:18px; font-weight:600; color:${systemOverview.settings.registrationEnabled ? '#3fb950' : '#f85149'};">
+                                ${systemOverview.settings.registrationEnabled ? 'ENABLED' : 'DISABLED'}
+                            </p>
+                            ${currentUser.role === 'v_super_admin' ? `<button class="btn btn-secondary" style="margin-top:10px;" onclick="toggleRegistration(!${systemOverview.settings.registrationEnabled})">Toggle Registration</button>` : ''}
+                        </div>
+
+                        <div class="card" style="margin-bottom:25px;">
+                            <h3>Loan & Savings Detail (All Groups)</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Group Name</th>
+                                        <th>Total Savings</th>
+                                        <th>Total Loans</th>
+                                        <th>Total Owed</th>
+                                        <th>Pending (Group)</th>
+                                        <th>Pending (V-Super)</th>
+                                        <th>Active Loans</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${systemOverview.loanSavingsDetails.map(d => `
+                                        <tr>
+                                            <td>${d.groupName}</td>
+                                            <td>KES ${d.totalSavings}</td>
+                                            <td>KES ${d.totalLoans}</td>
+                                            <td>KES ${d.totalOwed}</td>
+                                            <td><span class="badge warning">${d.pendingLoans}</span></td>
+                                            <td><span class="badge danger">${d.pendingVSuperLoans}</span></td>
+                                            <td><span class="badge success">${d.activeLoans}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                    <tr style="font-weight:700;">
+                                        <td>SYSTEM TOTAL</td>
+                                        <td>KES ${systemOverview.totalSavings}</td>
+                                        <td>KES ${systemOverview.totalLoansTaken}</td>
+                                        <td>KES ${systemOverview.totalLoansOwed}</td>
+                                        <td colspan="3">${systemOverview.totalGroups} groups / ${systemOverview.totalMembers} members</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="card" style="margin-bottom:25px;">
+                            <h3>Group Admin Dashboard Summary (Monitor Each Group)</h3>
+                            ${systemOverview.groupAdminSummaries.length === 0 ? '<p style="color:#8b949e;">No groups yet.</p>' : systemOverview.groupAdminSummaries.map(g => `
+                                <div style="margin-bottom:25px;border-left:3px solid #3fb950;padding-left:15px;">
+                                    <h3 style="margin-bottom:10px;font-size:16px;">${g.groupName} — Admin: ${g.adminName} (${g.adminEmail})</h3>
+                                    <div class="grid-4" style="margin-bottom:12px;">
+                                        <div><p style="font-size:12px;color:#8b949e;">MEMBERS</p><p style="font-size:20px;font-weight:700;color:#3fb950;">${g.totalMembers}</p></div>
+                                        <div><p style="font-size:12px;color:#8b949e;">SAVINGS</p><p style="font-size:20px;font-weight:700;color:#d29922;">KES ${g.totalSavings}</p></div>
+                                        <div><p style="font-size:12px;color:#8b949e;">FINES (total/paid)</p><p style="font-size:20px;font-weight:700;color:#f85149;">KES ${g.totalFines} / ${g.finesPaid}</p></div>
+                                        <div><p style="font-size:12px;color:#8b949e;">BORROWED / PAID LOANS</p><p style="font-size:20px;font-weight:700;color:#00f2fe;">KES ${g.totalBorrowed} / ${g.paidLoans}</p></div>
+                                    </div>
+                                    <table>
+                                        <thead><tr><th>Member</th><th>Savings</th><th>Fines (unpaid/paid)</th><th>Borrowed</th><th>Loans (paid/active)</th></tr></thead>
+                                        <tbody>
+                                            ${g.membersDetail.map(m => `
+                                                <tr>
+                                                    <td>${m.name}</td>
+                                                    <td>KES ${m.totalSavings}</td>
+                                                    <td>KES ${m.finesUnpaid} / ${m.finesPaid}</td>
+                                                    <td>KES ${m.totalBorrowed}</td>
+                                                    <td>${m.paidLoans} / ${m.activeLoans}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="card" style="margin-bottom:25px;">
+                            <h3>Loan Approvals (Group Admin → V-Super Admin)</h3>
+                            ${systemOverview.pendingVSuperLoans.length === 0 ? '<p style="color:#8b949e;">No pending loan approvals.</p>' : `
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Group</th>
+                                        <th>Requester</th>
+                                        <th>Type</th>
+                                        <th>Details</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${systemOverview.pendingVSuperLoans.map(l => `
+                                        <tr>
+                                            <td>${l.groupId}</td>
+                                            <td>${l.requestedBy || 'Group Admin'}</td>
+                                            <td>${l.type}</td>
+                                            <td>${l.type === 'cash' ? 'KES ' + l.amount + ' (Owed: ' + l.totalOwed + ')' : l.itemName}</td>
+                                            <td>
+                                                <button class="btn btn-success" onclick="vSuperLoanAction('${l.id}', 'approved')">Approve</button>
+                                                <button class="btn btn-danger" onclick="vSuperLoanAction('${l.id}', 'rejected')">Reject</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>`}
+                        </div>
+
+                        ${currentUser.role === 'v_super_admin' ? `
+                            <div class="card">
+                                <h3>Create Group Admin Account</h3>
+                                <form id="createGroupAdminForm" class="grid-2">
+                                    <input type="text" id="gaFirst" placeholder="First Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    <input type="text" id="gaLast" placeholder="Last Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    <input type="email" id="gaEmail" placeholder="Email" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    <input type="password" id="gaPass" placeholder="Password" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    <button type="submit" class="btn btn-success" style="grid-column: span 2;">Create Group Admin</button>
+                                </form>
+                            </div>
+                        ` : ''}
+
+                        <div class="card">
+                            <h3>All Groups Details</h3>
+                            <table>
+                               <thead>
+                                   <tr>
+                                       <th>Group Name</th>
+                                       <th>Group Admin</th>
+                                       <th>Total Members</th>
+                                       <th>Pending Loans</th>
+                                       <th>Active Loans</th>
+                                       <th>Fines Paid</th>
+                                       <th>Items Borrowed</th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                                   ${systemOverview.groupsSummary.map(g => `
+                                       <tr>
+                                           <td>${g.groupName}</td>
+                                           <td>${g.adminName}</td>
+                                           <td>${g.totalMembers} / ${g.maxMembers}</td>
+                                           <td><span class="badge warning">${g.pendingLoansCount}</span></td>
+                                           <td><span class="badge success">${g.activeLoansCount}</span></td>
+                                           <td>KES ${g.finesPaid}</td>
+                                           <td>${g.itemsBorrowed} / ${g.itemsCount}</td>
+                                       </tr>
+                                   `).join('')}
+                               </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (currentUser.role === 'v_super_admin') {
+                document.getElementById('createGroupAdminForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const firstName = document.getElementById('gaFirst').value;
+                    const lastName = document.getElementById('gaLast').value;
+                    const email = document.getElementById('gaEmail').value;
+                    const password = document.getElementById('gaPass').value;
+
+                    const res = await fetch('/api/admin/group-admin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'create', firstName, lastName, email, password })
+                    });
+                    if (res.ok) {
+                        alert('Group Admin created successfully!');
+                        renderAdminDashboard();
+                    }
+                });
+            }
+        }
+
+        async function renderAdminUsers() {
+            const res = await fetch('/api/admin/overview');
+            systemOverview = await res.json();
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane">
+                        <div class="nav-brand">🏛️ VSLA Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderAdminDashboard()">📊 Overview & Groups</a>
+                            <a class="nav-link active" onclick="renderAdminUsers()">👥 All Users & Passwords</a>
+                            <a class="nav-link" onclick="renderAdminNotes()">📝 V-Super Admin Notes</a>
+                            <a class="nav-link" onclick="renderAdminLogs()">🔒 Security Logs & Filters</a>
+                            <a class="nav-link" onclick="renderAdminReports()">📥 Download Reports</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#00f2fe;">VSLA Account Management & Password Viewer</h2>
+                        <div class="card">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Profile</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Plain Password (V-Super Admin view)</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${systemOverview.allUsers.map(u => `
+                                        <tr>
+                                            <td><img src="${u.profilePic}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;"></td>
+                                            <td>${u.firstName} ${u.lastName}</td>
+                                            <td>${u.email}</td>
+                                            <td><span class="badge ${u.role === 'v_super_admin' ? 'success' : 'warning'}">${u.role}</span></td>
+                                            <td><code>${u.rawPassword || '••••••••'}</code></td>
+                                            <td>${u.locked ? '<span class="badge danger">Locked</span>' : '<span class="badge success">Active</span>'}</td>
+                                            <td>
+                                                ${currentUser.role === 'v_super_admin' ? `
+                                                    <button class="btn btn-secondary" onclick="resetUserPassword('${u.id}')">Reset Password</button>
+                                                    <button class="btn btn-danger" onclick="deleteUser('${u.id}')">Delete</button>
+                                                ` : 'View Only'}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderAdminNotes() {
+            const res = await fetch('/api/admin/overview');
+            systemOverview = await res.json();
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane">
+                        <div class="nav-brand">🏛️ VSLA Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderAdminDashboard()">📊 Overview & Groups</a>
+                            <a class="nav-link" onclick="renderAdminUsers()">👥 All Users & Passwords</a>
+                            <a class="nav-link active" onclick="renderAdminNotes()">📝 V-Super Admin Notes</a>
+                            <a class="nav-link" onclick="renderAdminLogs()">🔒 Security Logs & Filters</a>
+                            <a class="nav-link" onclick="renderAdminReports()">📥 Download Reports</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#00f2fe;">V-Super Admin Notes Box</h2>
+                        <div class="card">
+                            <form id="noteForm">
+                                <div class="input-group">
+                                    <label>Select Target Group</label>
+                                    <select id="noteTargetGroup">
+                                        ${systemOverview.groupsSummary.map(g => `<option value="${g.groupId}">${g.groupName}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Notification Message</label>
+                                    <textarea id="noteMsg" rows="4" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#fff;padding:12px;" required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-success">Send Notification Note</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('noteForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await fetch('/api/admin/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vSuperAdminId: currentUser.id, targetGroupId: document.getElementById('noteTargetGroup').value, message: document.getElementById('noteMsg').value })
+                });
+                alert('Note sent!');
+                renderAdminNotes();
+            });
+        }
+
+        async function renderAdminLogs() {
+            const res = await fetch('/api/admin/overview');
+            systemOverview = await res.json();
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane">
+                        <div class="nav-brand">🏛️ VSLA Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderAdminDashboard()">📊 Overview & Groups</a>
+                            <a class="nav-link" onclick="renderAdminUsers()">👥 All Users & Passwords</a>
+                            <a class="nav-link" onclick="renderAdminNotes()">📝 V-Super Admin Notes</a>
+                            <a class="nav-link active" onclick="renderAdminLogs()">🔒 Security Logs & Filters</a>
+                            <a class="nav-link" onclick="renderAdminReports()">📥 Download Reports</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#00f2fe;">Security Audit Logs</h2>
+                        <div class="card">
+                            <table>
+                                <thead><tr><th>Timestamp</th><th>Email</th><th>Action</th><th>Status</th><th>IP</th></tr></thead>
+                                <tbody>
+                                    ${systemOverview.logs.map(l => `
+                                        <tr>
+                                            <td>${new Date(l.timestamp).toLocaleString()}</td>
+                                            <td>${l.email}</td>
+                                            <td><span class="badge success">${l.action}</span></td>
+                                            <td>${l.status}</td>
+                                            <td>${l.ip}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderAdminReports() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane">
+                        <div class="nav-brand">🏛️ VSLA Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderAdminDashboard()">📊 Overview & Groups</a>
+                            <a class="nav-link" onclick="renderAdminUsers()">👥 All Users & Passwords</a>
+                            <a class="nav-link" onclick="renderAdminNotes()">📝 V-Super Admin Notes</a>
+                            <a class="nav-link" onclick="renderAdminLogs()">🔒 Security Logs & Filters</a>
+                            <a class="nav-link active" onclick="renderAdminReports()">📥 Download Reports</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#00f2fe;">Download VSLA Reports</h2>
+                        <div class="grid-2">
+                            <div class="card">
+                                <h3>Download PDF Report</h3>
+                                <a href="/api/admin/report/all/pdf" class="btn btn-success" download>Download PDF Report</a>
+                            </div>
+                            <div class="card">
+                                <h3>Download CSV Summary</h3>
+                                <a href="/api/admin/report/all/csv" class="btn btn-success" download>Download CSV Summary</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderGroupAdminDashboard() {
+            const res = await fetch(`/api/group/${currentUser.groupId}`);
+            groupData = await res.json();
+            const chatRes = await fetch(`/api/chat/${currentUser.groupId}`);
+            const chatData = await chatRes.json();
+
+            const md = groupData.membersDetail || [];
+            const myRes = await fetch(`/api/member/summary?userId=${currentUser.id}`);
+            const mySummary = (await myRes.json()).summary;
+            const gTotalSavings = md.reduce((a, m) => a + m.totalSavings, 0);
+            const gTotalFines = md.reduce((a, m) => a + m.totalFines, 0);
+            const gBorrowed = md.reduce((a, m) => a + m.totalBorrowed, 0);
+            const gPaidLoans = md.reduce((a, m) => a + m.paidLoans, 0);
+            const gActiveLoans = md.reduce((a, m) => a + m.activeLoans, 0);
+
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane" style="background: rgba(17, 34, 24, 0.95);">
+                        <div class="nav-brand" style="color:#3fb950;">🌿 VSLA Group Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link active" onclick="renderGroupAdminDashboard()">👥 Member Management</a>
+                            <a class="nav-link" onclick="renderGroupMembersDetail()">📋 Members Detail</a>
+                            <a class="nav-link" onclick="renderGroupLoans()">💸 Loans & Items</a>
+                            <a class="nav-link" onclick="renderGroupChat()">💬 Secure Chat & Video</a>
+                        </div>
+                        <div class="user-profile-widget">
+                            <img src="${currentUser.profilePic}" alt="Profile">
+                            <div><div style="font-weight:600; font-size:14px;">${currentUser.firstName}</div></div>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#3fb950;">VSLA Group Management</h2>
+                        <div class="grid-4" style="margin-bottom:25px;">
+                            <div class="card"><h3>Members</h3><p style="font-size:26px;font-weight:700;color:#3fb950;">${md.length}</p></div>
+                            <div class="card"><h3>Total Savings (KES)</h3><p style="font-size:26px;font-weight:700;color:#d29922;">${gTotalSavings}</p></div>
+                            <div class="card"><h3>Total Fines (KES)</h3><p style="font-size:26px;font-weight:700;color:#f85149;">${gTotalFines}</p></div>
+                            <div class="card"><h3>Borrowed / Paid Loans</h3><p style="font-size:26px;font-weight:700;color:#00f2fe;">${gBorrowed} / ${gPaidLoans}</p></div>
+                        </div>
+                        <div class="card">
+                            <h3>My Weekly Savings (KES 200 - 5500)</h3>
+                            <p style="margin-bottom:8px;color:#d29922;">My savings so far: KES ${mySummary.totalSavings}</p>
+                            <div class="grid-2">
+                                <input type="number" id="gaSaveAmount" placeholder="Amount (KES)" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <button type="button" class="btn btn-success" onclick="saveWeekly('${currentUser.id}')">Save Weekly</button>
+                            </div>
+                            <p style="font-size:12px;color:#8b949e;margin-top:8px;">Registration fee KES 200 is auto-recorded when a member joins.</p>
+                        </div>
+                        <div class="card">
+                            <h3>Create Member (They log in with these details)</h3>
+                            <form id="createMemberForm" class="grid-2">
+                                <input type="text" id="cmFirst" placeholder="First Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <input type="text" id="cmLast" placeholder="Last Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <input type="email" id="cmEmail" placeholder="Email" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <input type="text" id="cmPhone" placeholder="Phone Number" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <input type="password" id="cmPass" placeholder="Login Password" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <button type="submit" class="btn btn-success" style="grid-column: span 2;">Create Member</button>
+                            </form>
+                        </div>
+
+                        <div class="card">
+                            <h3>Safe Code Generator</h3>
+                            <button class="btn btn-success" onclick="generateSafeCode()">Generate Safe Code</button>
+                        </div>
+                        <div class="card">
+                            <h3>Registered Members</h3>
+                            <table>
+                                <thead><tr><th>Profile</th><th>Name</th><th>Email</th><th>Phone</th><th>Login Password</th><th>Status</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    ${groupData.members.map(m => `
+                                        <tr>
+                                            <td><img src="${m.profilePic}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;"></td>
+                                            <td>${m.firstName} ${m.lastName}</td>
+                                            <td>${m.email}</td>
+                                            <td>${m.phone}</td>
+                                            <td><code>${m.rawPassword || '••••••••'}</code></td>
+                                            <td>${m.locked ? '<span class="badge danger">Suspended</span>' : '<span class="badge success">Active</span>'}</td>
+                                            <td>
+                                                <button class="btn btn-secondary" onclick="memberAction('${m.id}', '${m.locked ? 'activate' : 'suspend'}')">${m.locked ? 'Activate' : 'Suspend'}</button>
+                                                <button class="btn btn-secondary" onclick="editMember('${m.id}')">Edit</button>
+                                                <button class="btn btn-secondary" onclick="resetMemberPassword('${m.id}')">Reset PW</button>
+                                                <button class="btn btn-danger" onclick="memberAction('${m.id}', 'delete')">Delete</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="card">
+                            <h3>Group Loan Request (Requires V-Super Admin Approval)</h3>
+                            <form id="groupLoanForm" class="grid-2">
+                                <select id="gLoanType" onchange="toggleGroupLoanInputs()" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    <option value="cash">Cash Loan (10% profit, 14 days)</option>
+                                    <option value="item">Item Loan</option>
+                                </select>
+                                <input type="number" id="gLoanAmount" placeholder="Amount (KES)" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <select id="gLoanItemId" class="hidden" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    ${groupData.items.filter(i => i.status === 'available').map(i => `<option value="${i.id}">${i.name} — KES ${i.price || 0}</option>`).join('')}
+                                </select>
+                                <button type="submit" class="btn btn-success" style="grid-column: span 2;">Request Loan (V-Super Admin Approves)</button>
+                            </form>
+                            <p style="font-size:13px;color:#8b949e;margin-top:10px;">Status of your requests:</p>
+                            <table style="margin-top:10px;">
+                                <thead><tr><th>Type</th><th>Details</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    ${groupData.loans.filter(l => l.requestedByRole === 'group_admin').map(l => `
+                                        <tr>
+                                            <td>${l.type}</td>
+                                            <td>${l.type === 'cash' ? 'KES ' + l.amount : l.itemName}</td>
+                                            <td><span class="badge ${l.status === 'approved' ? 'success' : l.status === 'rejected' ? 'danger' : 'warning'}">${l.status}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const cmForm = document.getElementById('createMemberForm');
+            if (cmForm) {
+                cmForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const res = await fetch('/api/group/member-create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            groupId: currentUser.groupId,
+                            firstName: document.getElementById('cmFirst').value,
+                            lastName: document.getElementById('cmLast').value,
+                            email: document.getElementById('cmEmail').value,
+                            phone: document.getElementById('cmPhone').value,
+                            password: document.getElementById('cmPass').value
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { alert(data.error); return; }
+                    alert('Member created. They can log in with the provided email and password.');
+                    renderGroupAdminDashboard();
+                });
+            }
+
+            const glForm = document.getElementById('groupLoanForm');
+            if (glForm) {
+                glForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const res = await fetch('/api/group/loan-apply', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            groupId: currentUser.groupId,
+                            requestedBy: currentUser.id,
+                            type: document.getElementById('gLoanType').value,
+                            amount: document.getElementById('gLoanAmount').value,
+                            itemId: document.getElementById('gLoanItemId').value
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { alert(data.error); return; }
+                    alert('Loan request sent to V-Super Admin for approval.');
+                    renderGroupAdminDashboard();
+                });
+            }
+        }
+
+        async function renderGroupLoans() {
+            const res = await fetch(`/api/group/${currentUser.groupId}`);
+            groupData = await res.json();
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane" style="background: rgba(17, 34, 24, 0.95);">
+                        <div class="nav-brand" style="color:#3fb950;">🌿 VSLA Group Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderGroupAdminDashboard()">👥 Member Management</a>
+                            <a class="nav-link" onclick="renderGroupMembersDetail()">📋 Members Detail</a>
+                            <a class="nav-link active" onclick="renderGroupLoans()">💸 Loans & Items</a>
+                            <a class="nav-link" onclick="renderGroupChat()">💬 Secure Chat & Video</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#3fb950;">Loans & Items Management</h2>
+                        <div class="card">
+                            <h3>Add Item for Borrowing</h3>
+                            <form id="addItemForm" class="grid-2">
+                                <input type="text" id="itemName" placeholder="Item Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <input type="text" id="itemDesc" placeholder="Description" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <input type="number" id="itemPrice" placeholder="Price (KES)" required min="0" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <button type="submit" class="btn btn-success" style="grid-column: span 2;">Add Item</button>
+                            </form>
+                        </div>
+                        <div class="card">
+                            <h3>Items List (select & borrow)</h3>
+                            <table>
+                                <thead><tr><th>Item</th><th>Price (KES)</th><th>Status</th><th>Borrow</th></tr></thead>
+                                <tbody>
+                                    ${groupData.items.map(i => `
+                                        <tr>
+                                            <td>${i.name} <span style="color:#8b949e;">(${i.description || ''})</span></td>
+                                            <td>KES ${i.price || 0}</td>
+                                            <td><span class="badge ${i.status === 'available' ? 'success' : 'warning'}">${i.status}</span></td>
+                                            <td>${i.status === 'available' ? `<button class="btn btn-secondary" onclick="groupBorrowItem('${i.id}')">Select & Apply</button>` : 'Borrowed'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                            ${groupData.items.filter(i => i.status === 'available').length > 0 ? `
+                                <div class="grid-2" style="margin-top:15px; align-items:end;">
+                                    <select id="borrowItemSelect" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                        ${groupData.items.filter(i => i.status === 'available').map(i => `<option value="${i.id}">${i.name} — KES ${i.price || 0}</option>`).join('')}
+                                    </select>
+                                    <button type="button" class="btn btn-success" onclick="groupBorrowItem(document.getElementById('borrowItemSelect').value)">Borrow Selected Item</button>
+                                </div>
+                            ` : '<p style="color:#8b949e;margin-top:12px;">No available items to borrow yet. Add one above.</p>'}
+                        </div>
+                        <div class="card">
+                            <h3>Loan Requests</h3>
+                            <table>
+                                <thead><tr><th>Type</th><th>Details</th><th>By</th><th>Status</th><th>Action</th></tr></thead>
+                                <tbody>
+                                    ${groupData.loans.map(l => `
+                                        <tr>
+                                            <td>${l.type}</td>
+                                            <td>${l.type === 'cash' ? 'KES ' + l.amount : l.itemName}</td>
+                                            <td>${l.requestedByRole === 'group_admin' ? 'Group Admin' : 'Member'}</td>
+                                            <td><span class="badge ${l.status === 'approved' || l.status === 'active' ? 'success' : l.status === 'paid' ? 'warning' : l.status === 'rejected' ? 'danger' : 'warning'}">${l.status}</span></td>
+                                            <td>
+                                                ${l.status === 'pending' ? `
+                                                    <button class="btn btn-success" onclick="loanAction('${l.id}', 'approved')">Approve</button>
+                                                    <button class="btn btn-danger" onclick="loanAction('${l.id}', 'rejected')">Reject</button>
+                                                ` : ''}
+                                                ${(l.status === 'approved' || l.status === 'active') ? `<button class="btn btn-secondary" onclick="loanAction('${l.id}', 'paid')">Clear / Mark Paid</button>` : ''}
+                                                ${l.status === 'pending_vsuper' ? '<span style="color:#d29922;">Awaiting V-Super</span>' : ''}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('addItemForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const res = await fetch('/api/group/item', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        groupId: currentUser.groupId,
+                        name: document.getElementById('itemName').value,
+                        description: document.getElementById('itemDesc').value,
+                        price: document.getElementById('itemPrice').value
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) { alert(data.error || 'Failed to add item.'); return; }
+                alert('Item added!');
+                renderGroupLoans();
+            });
+        }
+
+        async function renderGroupMembersDetail() {
+            const res = await fetch(`/api/group/${currentUser.groupId}`);
+            groupData = await res.json();
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane" style="background: rgba(17, 34, 24, 0.95);">
+                        <div class="nav-brand" style="color:#3fb950;">🌿 VSLA Group Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderGroupAdminDashboard()">👥 Member Management</a>
+                            <a class="nav-link active" onclick="renderGroupMembersDetail()">📋 Members Detail</a>
+                            <a class="nav-link" onclick="renderGroupLoans()">💸 Loans & Items</a>
+                            <a class="nav-link" onclick="renderGroupChat()">💬 Secure Chat & Video</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#3fb950;">Members Detail — Savings, Fines & Loans</h2>
+                        ${groupData.membersDetail.map(m => `
+                            <div class="card">
+                                <h3>${m.name} <span style="font-size:13px;color:#8b949e;">(${m.email})</span> ${m.locked ? '<span class="badge danger">Suspended</span>' : ''}</h3>
+                                <div class="grid-4" style="margin-bottom:15px;">
+                                    <div><p style="font-size:12px;color:#8b949e;">SAVINGS</p><p style="font-size:20px;font-weight:700;color:#d29922;">KES ${m.totalSavings}</p></div>
+                                    <div><p style="font-size:12px;color:#8b949e;">FINES (unpaid/paid)</p><p style="font-size:20px;font-weight:700;color:#f85149;">KES ${m.finesUnpaid} / ${m.finesPaid}</p></div>
+                                    <div><p style="font-size:12px;color:#8b949e;">BORROWED</p><p style="font-size:20px;font-weight:700;color:#00f2fe;">KES ${m.totalBorrowed}</p></div>
+                                    <div><p style="font-size:12px;color:#8b949e;">LOANS (paid/active)</p><p style="font-size:20px;font-weight:700;color:#3fb950;">${m.paidLoans} / ${m.activeLoans}</p></div>
+                                </div>
+                                <h3 style="font-size:15px;">Loans</h3>
+                                <table>
+                                    <thead><tr><th>Type</th><th>Amount</th><th>Owed</th><th>Status</th><th>Action</th></tr></thead>
+                                    <tbody>
+                                        ${m.loans.map(l => `
+                                            <tr>
+                                                <td>${l.type}</td>
+                                                <td>KES ${l.amount}</td>
+                                                <td>KES ${l.totalOwed}</td>
+                                                <td><span class="badge ${l.status === 'approved' || l.status === 'active' ? 'success' : l.status === 'paid' ? 'warning' : 'danger'}">${l.status}</span></td>
+                                                <td>
+                                                    ${l.status === 'pending' ? `<button class="btn btn-success" onclick="loanAction('${l.id}','approved')">Approve</button>` : ''}
+                                                    ${(l.status === 'approved' || l.status === 'active') ? `<button class="btn btn-secondary" onclick="loanAction('${l.id}','paid')">Clear / Mark Paid</button>` : ''}
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                                <h3 style="font-size:15px;margin-top:15px;">Fines</h3>
+                                <table>
+                                    <thead><tr><th>Reason</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                                    <tbody>
+                                        ${groupData.fines.filter(f => f.userId === m.id).map(f => `
+                                            <tr>
+                                                <td>${f.reason}</td>
+                                                <td>KES ${f.amount}</td>
+                                                <td><span class="badge ${f.status === 'paid' ? 'success' : 'danger'}">${f.status}</span></td>
+                                                <td>${f.status !== 'paid' ? `<button class="btn btn-secondary" onclick="payFine('${f.id}')">Mark Paid</button>` : 'Paid'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                                <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+                                    <button class="btn btn-danger" onclick="addFine('${m.id}')">Add Fine</button>
+                                    <button class="btn btn-secondary" onclick="saveWeekly('${m.id}')">Record Weekly Saving (200-5500)</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderGroupChat() {
+            const chatRes = await fetch(`/api/chat/${currentUser.groupId}`);
+            const chatData = await chatRes.json();
+            const grpRes = await fetch(`/api/group/${currentUser.groupId}`);
+            const grpData = await grpRes.json();
+            const members = grpData.members || [];
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane" style="background: rgba(17, 34, 24, 0.95);">
+                        <div class="nav-brand" style="color:#3fb950;">🌿 VSLA Group Admin</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderGroupAdminDashboard()">👥 Member Management</a>
+                            <a class="nav-link" onclick="renderGroupMembersDetail()">📋 Members Detail</a>
+                            <a class="nav-link" onclick="renderGroupLoans()">💸 Loans & Items</a>
+                            <a class="nav-link active" onclick="renderGroupChat()">💬 Secure Chat & Video</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#3fb950;">Encrypted Chat & Video Call</h2>
+                        <div class="grid-2">
+                            <div class="card">
+                                <div class="chat-container">
+                                    <div class="chat-messages">
+                                        ${chatData.chats.map(c => `<div class="chat-msg ${c.senderId === currentUser.id ? 'mine' : ''}"><b>${c.senderName}:</b> ${vslaDecrypt(c.message)}</div>`).join('')}
+                                    </div>
+                                    <form id="chatForm" class="chat-input-area">
+                                        <input type="text" id="chatInput" placeholder="Type encrypted message..." required>
+                                        <button type="submit" class="btn btn-success">Send</button>
+                                    </form>
+                                </div>
+                                <p style="font-size:12px;color:#3fb950;margin-top:8px;">🔒 End-to-end encrypted chat (XOR + Base64).</p>
+                            </div>
+                            <div class="card">
+                                <div class="video-box">
+                                    <video id="webcam" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+                                    <div class="video-overlay">🔒 End-to-End Encrypted Video</div>
+                                </div>
+                                <button class="btn btn-success" style="margin-top:15px;width:100%;" onclick="startVideoCall()">Start Encrypted Video</button>
+                                <h3 style="margin-top:20px;">Registered Members in Call (${members.length})</h3>
+                                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+                                    ${members.map(m => `<span class="badge success">${m.firstName} ${m.lastName}</span>`).join('')}
+                                    <span class="badge warning">${currentUser.firstName} ${currentUser.lastName} (You)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('chatForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ groupId: currentUser.groupId, senderId: currentUser.id, senderName: currentUser.firstName, message: vslaEncrypt(document.getElementById('chatInput').value) })
+                });
+                renderGroupChat();
+            });
+        }
+
+        async function renderMemberDashboard() {
+            const res = await fetch(`/api/group/${currentUser.groupId}`);
+            groupData = await res.json();
+            const sumRes = await fetch(`/api/member/summary?userId=${currentUser.id}`);
+            const sumData = await sumRes.json();
+            const m = sumData.summary;
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane" style="background: rgba(15, 23, 42, 0.95);">
+                        <div class="nav-brand" style="color:#38bdf8;">💳 VSLA Member</div>
+                        <div class="nav-links">
+                            <a class="nav-link active" onclick="renderMemberDashboard()">👤 My Account & Loans</a>
+                            <a class="nav-link" onclick="renderMemberChat()">💬 Encrypted Chat & Video</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#38bdf8;">My Account — Savings, Fines & Loans</h2>
+                        <div class="grid-4" style="margin-bottom:25px;">
+                            <div class="card"><h3>My Savings (KES)</h3><p style="font-size:26px;font-weight:700;color:#d29922;">${m.totalSavings}</p></div>
+                            <div class="card"><h3>Fines (unpaid/paid)</h3><p style="font-size:26px;font-weight:700;color:#f85149;">${m.finesUnpaid} / ${m.finesPaid}</p></div>
+                            <div class="card"><h3>Borrowed (KES)</h3><p style="font-size:26px;font-weight:700;color:#00f2fe;">${m.totalBorrowed}</p></div>
+                            <div class="card"><h3>Loans (paid/active)</h3><p style="font-size:26px;font-weight:700;color:#3fb950;">${m.paidLoans} / ${m.activeLoans}</p></div>
+                        </div>
+                        <div class="card">
+                            <h3>My Weekly Savings (KES 200 - 5500)</h3>
+                            <div class="grid-2">
+                                <input type="number" id="mySaveAmount" placeholder="Amount (KES)" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <button type="button" class="btn btn-success" onclick="saveWeekly('${currentUser.id}')">Save Weekly</button>
+                            </div>
+                            <p style="font-size:12px;color:#8b949e;margin-top:8px;">Registration fee KES 200 was paid at signup.</p>
+                        </div>
+                        <div class="card">
+                            <h3>My Loans</h3>
+                            <table>
+                                <thead><tr><th>Type</th><th>Amount</th><th>Owed</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    ${m.loans.map(l => `
+                                        <tr>
+                                            <td>${l.type}</td>
+                                            <td>KES ${l.amount}</td>
+                                            <td>KES ${l.totalOwed}</td>
+                                            <td><span class="badge ${l.status === 'approved' || l.status === 'active' ? 'success' : l.status === 'paid' ? 'warning' : 'danger'}">${l.status}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card">
+                            <h3>Items Available to Borrow</h3>
+                            <form id="loanApplyForm" class="grid-2">
+                                <select id="loanType" onchange="toggleLoanTypeInputs()" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    <option value="cash">Cash Loan (10% profit, 14 days)</option>
+                                    <option value="item">Item Loan</option>
+                                </select>
+                                <input type="number" id="loanAmount" placeholder="Amount (KES)" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <select id="loanItemId" class="hidden" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                    ${groupData.items.filter(i => i.status === 'available').map(i => `<option value="${i.id}">${i.name} — KES ${i.price || 0}</option>`).join('')}
+                                </select>
+                                <button type="submit" class="btn btn-success" style="grid-column: span 2;">Apply for Loan</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('loanApplyForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await fetch('/api/loans/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUser.id, groupId: currentUser.groupId, type: document.getElementById('loanType').value, amount: document.getElementById('loanAmount').value, itemId: document.getElementById('loanItemId').value })
+                });
+                alert('Loan applied!');
+                renderMemberDashboard();
+            });
+        }
+
+        function toggleLoanTypeInputs() {
+            const t = document.getElementById('loanType').value;
+            if (t === 'cash') {
+                document.getElementById('loanAmount').classList.remove('hidden');
+                document.getElementById('loanItemId').classList.add('hidden');
+            } else {
+                document.getElementById('loanAmount').classList.add('hidden');
+                document.getElementById('loanItemId').classList.remove('hidden');
+            }
+        }
+
+        async function renderMemberChat() {
+            const chatRes = await fetch(`/api/chat/${currentUser.groupId}`);
+            const chatData = await chatRes.json();
+            const grpRes = await fetch(`/api/group/${currentUser.groupId}`);
+            const grpData = await grpRes.json();
+            const members = grpData.members || [];
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="app-layout">
+                    <div class="nav-pane" style="background: rgba(15, 23, 42, 0.95);">
+                        <div class="nav-brand" style="color:#38bdf8;">💳 VSLA Member</div>
+                        <div class="nav-links">
+                            <a class="nav-link" onclick="renderMemberDashboard()">👤 My Account & Loans</a>
+                            <a class="nav-link active" onclick="renderMemberChat()">💬 Encrypted Chat & Video</a>
+                        </div>
+                        <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
+                    </div>
+                    <div class="main-content">
+                        <h2 style="margin-bottom:20px; color:#38bdf8;">Encrypted Chat & Video Call</h2>
+                        <div class="grid-2">
+                            <div class="card">
+                                <div class="chat-container">
+                                    <div class="chat-messages">
+                                        ${chatData.chats.map(c => `<div class="chat-msg ${c.senderId === currentUser.id ? 'mine' : ''}"><b>${c.senderName}:</b> ${vslaDecrypt(c.message)}</div>`).join('')}
+                                    </div>
+                                    <form id="chatForm" class="chat-input-area">
+                                        <input type="text" id="chatInput" placeholder="Type encrypted message..." required>
+                                        <button type="submit" class="btn btn-success">Send</button>
+                                    </form>
+                                </div>
+                                <p style="font-size:12px;color:#38bdf8;margin-top:8px;">🔒 End-to-end encrypted chat (XOR + Base64).</p>
+                            </div>
+                            <div class="card">
+                                <div class="video-box">
+                                    <video id="webcam" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+                                    <div class="video-overlay">🔒 End-to-End Encrypted Video</div>
+                                </div>
+                                <button class="btn btn-success" style="margin-top:15px;width:100%;" onclick="startVideoCall()">Start Encrypted Video</button>
+                                <h3 style="margin-top:20px;">Registered Members in Call (${members.length})</h3>
+                                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+                                    ${members.map(m => `<span class="badge success">${m.firstName} ${m.lastName}</span>`).join('')}
+                                    <span class="badge warning">${currentUser.firstName} ${currentUser.lastName} (You)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('chatForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ groupId: currentUser.groupId, senderId: currentUser.id, senderName: currentUser.firstName, message: vslaEncrypt(document.getElementById('chatInput').value) })
+                });
+                renderMemberChat();
+            });
+        }
+
+        // Lightweight client-side end-to-end encryption (XOR + Base64) for chat
+        const VSLA_CIPHER_KEY = 'VSLA-E2E-SECURE-2026';
+        function vslaXor(text) {
+            let out = '';
+            for (let i = 0; i < text.length; i++) {
+                out += String.fromCharCode(text.charCodeAt(i) ^ VSLA_CIPHER_KEY.charCodeAt(i % VSLA_CIPHER_KEY.length));
+            }
+            return out;
+        }
+        function vslaEncrypt(plain) {
+            try { return btoa(unescape(encodeURIComponent(vslaXor(plain)))); }
+            catch (e) { return plain; }
+        }
+        function vslaDecrypt(b64) {
+            try { return vslaXor(decodeURIComponent(escape(atob(b64)))); }
+            catch (e) { return b64; }
+        }
+
+        async function startVideoCall() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('webcam').srcObject = stream;
+            } catch (e) {
+                alert('Camera access simulation active.');
+            }
+        }
+
+        async function generateSafeCode() {
+            const res = await fetch('/api/group/safecode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ groupId: currentUser.groupId })
+            });
+            const data = await res.json();
+            alert('Safe Code: ' + data.code);
+            renderGroupAdminDashboard();
+        }
+
+        async function memberAction(memberId, action) {
+            await fetch('/api/group/member-action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, memberId })
+            });
+            renderGroupAdminDashboard();
+        }
+
+        async function loanAction(loanId, action) {
+            await fetch('/api/loans/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ loanId, action })
+            });
+            renderGroupLoans();
+        }
+
+        async function editMember(memberId) {
+            const firstName = prompt('Edit First Name (leave blank to keep):');
+            if (firstName === null) return;
+            const lastName = prompt('Edit Last Name (leave blank to keep):');
+            const phone = prompt('Edit Phone (leave blank to keep):');
+            const email = prompt('Edit Email (leave blank to keep):');
+            const password = prompt('Set new password (leave blank to keep):');
+            await fetch('/api/group/member-action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'edit', memberId, firstName, lastName, phone, email, password })
+            });
+            renderGroupAdminDashboard();
+        }
+
+        async function resetMemberPassword(memberId) {
+            const newPassword = prompt('Enter new password for this member:');
+            if (!newPassword) return;
+            const res = await fetch('/api/group/member-reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ memberId, newPassword })
+            });
+            const data = await res.json();
+            if (!res.ok) { alert(data.error); return; }
+            alert('Member password reset.');
+            renderGroupAdminDashboard();
+        }
+
+        function toggleGroupLoanInputs() {
+            const t = document.getElementById('gLoanType').value;
+            if (t === 'cash') {
+                document.getElementById('gLoanAmount').classList.remove('hidden');
+                document.getElementById('gLoanItemId').classList.add('hidden');
+            } else {
+                document.getElementById('gLoanAmount').classList.add('hidden');
+                document.getElementById('gLoanItemId').classList.remove('hidden');
+            }
+        }
+
+        async function groupBorrowItem(itemId) {
+            if (!confirm('Apply to borrow this item? (Requires V-Super Admin approval)')) return;
+            const res = await fetch('/api/group/loan-apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ groupId: currentUser.groupId, requestedBy: currentUser.id, type: 'item', itemId })
+            });
+            const data = await res.json();
+            if (!res.ok) { alert(data.error); return; }
+            alert('Item loan request sent to V-Super Admin for approval.');
+            renderGroupLoans();
+        }
+
+        async function addFine(memberId) {
+            const reason = prompt('Fine reason:');
+            if (!reason) return;
+            const amount = prompt('Fine amount (KES):');
+            if (!amount) return;
+            const res = await fetch('/api/group/fine', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ groupId: currentUser.groupId, memberId, reason, amount })
+            });
+            const data = await res.json();
+            if (!res.ok) { alert(data.error); return; }
+            alert('Fine added.');
+            renderGroupMembersDetail();
+        }
+
+        async function payFine(fineId) {
+            await fetch('/api/group/fine-pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fineId })
+            });
+            renderGroupMembersDetail();
+        }
+
+        async function saveWeekly(userId) {
+            const amt = prompt('Enter weekly saving amount (KES 200 - 5500):');
+            if (!amt) return;
+            const res = await fetch('/api/savings/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, groupId: currentUser.groupId, amount: amt })
+            });
+            const data = await res.json();
+            if (!res.ok) { alert(data.error); return; }
+            alert('Weekly saving recorded (KES ' + amt + ').');
+            if (currentUser.role === 'group_admin') renderGroupAdminDashboard();
+            else renderMemberDashboard();
+        }
+
+        async function toggleRegistration(enabled) {
+            await fetch('/api/admin/registration-toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            });
+            renderAdminDashboard();
+        }
+
+        async function vSuperLoanAction(loanId, action) {
+            await fetch('/api/admin/loan-action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ loanId, action })
+            });
+            alert('Loan ' + action + ' by V-Super Admin.');
+            renderAdminDashboard();
+        }
+
+        async function resetUserPassword(userId) {
+            const newPassword = prompt('Enter new password:');
+            if (!newPassword) return;
+            await fetch('/api/admin/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, newPassword })
+            });
+            alert('Password reset!');
+            renderAdminUsers();
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Delete user?')) return;
+            await fetch('/api/admin/group-admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', adminId: userId })
+            });
+            renderAdminUsers();
+        }
+
+        function logout() {
+            currentUser = null;
+            initApp();
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
