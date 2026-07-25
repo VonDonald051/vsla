@@ -640,7 +640,7 @@
                             <a class="nav-link" onclick="renderAdminReports()">📥 Download Reports</a>
                         </div>
                         <div class="user-profile-widget">
-                            <img src="${currentUser.profilePic || '/uploads/default-avatar.png'}" alt="Profile">
+                            <img src="${currentUser.profilePic || '/uploads/default-avatar.svg'}" alt="Profile">
                             <div>
                                 <div style="font-weight:600; font-size:14px;">${currentUser.firstName}</div>
                                 <div style="font-size:11px; color:#8b949e;">${currentUser.role.toUpperCase()}</div>
@@ -877,7 +877,7 @@
                                 <tbody>
                                     ${systemOverview.allUsers.map(u => `
                                         <tr>
-                                            <td><img src="${u.profilePic}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;"></td>
+                                            <td><img src="${u.profilePic || '/uploads/default-avatar.svg'}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;"></td>
                                             <td>${u.firstName} ${u.lastName}</td>
                                             <td>${u.email}</td>
                                             <td><span class="badge ${u.role === 'v_super_admin' ? 'success' : 'warning'}">${u.role}</span></td>
@@ -1047,7 +1047,7 @@
                             <a class="nav-link" onclick="renderGroupChat()">💬 Secure Chat & Video</a>
                         </div>
                         <div class="user-profile-widget">
-                            <img src="${currentUser.profilePic}" alt="Profile">
+                            <img src="${currentUser.profilePic || '/uploads/default-avatar.svg'}" alt="Profile">
                             <div><div style="font-weight:600; font-size:14px;">${currentUser.firstName}</div></div>
                         </div>
                         <button class="btn btn-danger" style="margin-top:15px;" onclick="logout()">Logout</button>
@@ -1092,7 +1092,7 @@
                                 <tbody>
                                     ${groupData.members.map(m => `
                                         <tr>
-                                            <td><img src="${m.profilePic}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;"></td>
+                                            <td><img src="${m.profilePic || '/uploads/default-avatar.svg'}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;"></td>
                                             <td>${m.firstName} ${m.lastName}</td>
                                             <td>${m.email}</td>
                                             <td>${m.phone}</td>

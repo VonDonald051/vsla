@@ -187,7 +187,7 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const profilePic = req.file ? `/uploads/${req.file.filename}` : '/uploads/default-avatar.png';
+        const profilePic = req.file ? `/uploads/${req.file.filename}` : '/uploads/default-avatar.svg';
 
         const newUser = {
             id: 'u_' + Date.now(),
@@ -431,7 +431,7 @@ app.post('/api/admin/group-admin', async (req, res) => {
             rawPassword: password,
             role: 'group_admin',
             groupId: newGroup.id,
-            profilePic: '/uploads/default-avatar.png',
+            profilePic: '/uploads/default-avatar.svg',
             failedLogins: 0,
             locked: false
         };
@@ -462,7 +462,7 @@ app.post('/api/admin/super-admin', async (req, res) => {
         passwordHash: hashedPassword,
         rawPassword: password,
         role: 'super_admin',
-        profilePic: '/uploads/default-avatar.png',
+        profilePic: '/uploads/default-avatar.svg',
         failedLogins: 0,
         locked: false
     };
@@ -698,7 +698,7 @@ app.post('/api/group/member-create', async (req, res) => {
         rawPassword: password,
         role: 'member',
         groupId,
-        profilePic: '/uploads/default-avatar.png',
+        profilePic: '/uploads/default-avatar.svg',
         failedLogins: 0,
         locked: false,
         createdAt: new Date().toISOString()
