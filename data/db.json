@@ -1,1 +1,50 @@
-{"users":[],"groups":[],"loans":[],"fines":[],"savings":[],"items":[],"safeCodes":[],"chats":[],"notes":[],"logs":[],"settings":{"safeCodeEnabled":false,"registrationEnabled":true,"globalLockout":false}}
+{
+  "users": [
+    {
+      "id": "u_1784878611317",
+      "firstName": "Cate",
+      "lastName": "Lilian",
+      "email": "lilian@gmail.com",
+      "phone": "0700000012",
+      "passwordHash": "$2b$10$E.yuqKahXiCIXj2Xr2ES5O6h0H8KbdVYKjqJTK2/2baO5Hqaq2E5e",
+      "rawPassword": "Qwerty@1234",
+      "role": "v_super_admin",
+      "groupId": "g_default",
+      "profilePic": "/uploads/1784878611078-photo_2026-06-10_23-54-13.jpg",
+      "failedLogins": 0,
+      "locked": false,
+      "createdAt": "2026-07-24T07:36:51.317Z"
+    }
+  ],
+  "groups": [],
+  "loans": [],
+  "fines": [],
+  "savings": [],
+  "items": [],
+  "safeCodes": [],
+  "chats": [],
+  "notes": [],
+  "logs": [
+    {
+      "id": "l_1784878611317",
+      "email": "lilian@gmail.com",
+      "action": "REGISTER_V_SUPER_ADMIN",
+      "status": "SUCCESS",
+      "ip": "::1",
+      "timestamp": "2026-07-24T07:36:51.317Z"
+    },
+    {
+      "id": "l_1784878627983",
+      "email": "lilian@gmail.com",
+      "action": "LOGIN",
+      "status": "SUCCESS",
+      "ip": "::1",
+      "timestamp": "2026-07-24T07:37:07.983Z"
+    }
+  ],
+  "settings": {
+    "safeCodeEnabled": false,
+    "registrationEnabled": true,
+    "globalLockout": false
+  }
+}
