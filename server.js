@@ -5,9 +5,21 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { execSync } = require('child_process');
+const { ConvexHttpClient } = require('convex/browser');
+
+// Vercel supplies environment variables directly; this also supports the
+// existing local .env file without adding another dependency.
+const ENV_FILE = path.join(__dirname, '.env');
+if (fs.existsSync(ENV_FILE)) {
+    for (const line of fs.readFileSync(ENV_FILE, 'utf8').split(/\r?\n/)) {
+        const match = line.match(/^\s*([A-Z0-9_]+)=(.*)\s*$/);
+        if (match && !process.env[match[1]]) process.env[match[1]] = match[2];
+    }
+}
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+const convex = process.env.CONVEX_URL ? new ConvexHttpClient(process.env.CONVEX_URL) : null;
 
 app.use(cors());
 app.use(express.json());
@@ -91,7 +103,7 @@ function addRegistrationFee(userId, groupId, db) {
     });
 }
 
-const storage = multer.diskStorage({
+const storage = process.env.VERCEL ? multer.memoryStorage() : multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_DIR),
     filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
@@ -112,7 +124,11 @@ function runPythonSecurity(payload) {
 // API ROUTES
 // -------------------------------------------------------------
 
-app.get('/api/state', (req, res) => {
+app.get('/api/state', async (req, res) => {
+    if (convex) {
+        try { return res.json(await convex.query('auth:state', {})); }
+        catch (error) { return res.status(503).json({ error: 'Convex database is unavailable.' }); }
+    }
     const db = getDb();
     res.json({
         hasVSuperAdmin: db.users.some(u => u.role === 'v_super_admin'),
@@ -126,22 +142,20 @@ app.get('/api/state', (req, res) => {
 // Register user: allows registering V-Super Admin and up to two Super Admins without safe code
 app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => {
     try {
+        const { firstName, lastName, email, phone, password, confirmPassword, safeCode, roleSelection, groupId } = req.body;
+        if (password !== confirmPassword) return res.status(400).json({ error: 'Passwords do not match.' });
+        const secRes = runPythonSecurity({ password, email, safeCode });
+        if (!secRes.pw_check) return res.status(400).json({ error: secRes.pw_msg || 'Password fails security entropy rules.' });
+        if (convex) {
+            const result = await convex.mutation('auth:register', { firstName, lastName, email, phone: phone || undefined, password, safeCode: safeCode || undefined, roleSelection: roleSelection || undefined, groupId: groupId || undefined });
+            return res.json(result);
+        }
         const db = getDb();
         
         if (!db.settings.registrationEnabled) {
             return res.status(403).json({ error: 'Registration is currently disabled by V-Super Admin.' });
         }
 
-        const { firstName, lastName, email, phone, password, confirmPassword, safeCode, roleSelection, groupId } = req.body;
-
-        if (password !== confirmPassword) {
-            return res.status(400).json({ error: 'Passwords do not match.' });
-        }
-
-        const secRes = runPythonSecurity({ password, email, safeCode });
-        if (!secRes.pw_check) {
-            return res.status(400).json({ error: secRes.pw_msg || 'Password fails security entropy rules.' });
-        }
 
         if (db.users.some(u => u.email === email)) {
             return res.status(400).json({ error: 'Email already registered.' });
@@ -229,8 +243,9 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
 // Login user
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const db = getDb();
         const { email, password, safeCode } = req.body;
+        if (convex) return res.json(await convex.mutation('auth:login', { email, password, safeCode: safeCode || undefined }));
+        const db = getDb();
 
         const user = db.users.find(u => u.email === email);
         if (!user) {
