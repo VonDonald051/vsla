@@ -1,3 +1,4 @@
 .cache
 /.npm
 node_modules
+.env.local
