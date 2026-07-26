@@ -26,15 +26,33 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Set DATA_DIR to a mounted, persistent volume in production.  Do not fall
-// back to /tmp: serverless platforms clear it between instances and would
-// silently lose the association's records.
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
-// Keep uploaded profile images with the database records on persistent
-// storage. UPLOADS_DIR can be a separate mounted volume when desired.
-const UPLOADS_DIR = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(DATA_DIR, 'uploads');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+function writableDirectory(preferredPath, fallbackPath, label) {
+    try {
+        fs.mkdirSync(preferredPath, { recursive: true });
+        fs.accessSync(preferredPath, fs.constants.W_OK);
+        return preferredPath;
+    } catch (error) {
+        // Vercel's deployed source directory is read-only. Use its writable
+        // /tmp area so the function can still start instead of returning 500.
+        fs.mkdirSync(fallbackPath, { recursive: true });
+        console.warn(`${label} is not writable; using ${fallbackPath}. Configure a persistent ${label} volume for durable production records.`);
+        return fallbackPath;
+    }
+}
+
+// A mounted DATA_DIR/UPLOADS_DIR is durable on traditional hosts. On Vercel,
+// the only writable filesystem is /tmp, so the fallback keeps the function
+// available while an external database is configured for permanent storage.
+const DATA_DIR = writableDirectory(
+    process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data'),
+    '/tmp/vsla-data',
+    'DATA_DIR'
+);
+const UPLOADS_DIR = writableDirectory(
+    process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(DATA_DIR, 'uploads'),
+    '/tmp/vsla-uploads',
+    'UPLOADS_DIR'
+);
 
 // Persist user uploads first, then fall back to the bundled default avatar.
 app.use('/uploads', express.static(UPLOADS_DIR));
