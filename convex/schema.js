@@ -155,4 +155,10 @@ export default defineSchema({
     safeCodeEnabled: v.boolean(),
     globalLockout: v.boolean(),
   }).index("by_key", ["key"]),
+
+  legacyState: defineTable({
+    key: v.literal("primary"),
+    snapshot: v.any(),
+    updatedAt: v.string(),
+  }).index("by_key", ["key"]),
 });

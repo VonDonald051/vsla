@@ -60,28 +60,32 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
-function getDb() {
+function emptyDb() {
+    return {
+        users: [], groups: [], loans: [], fines: [], savings: [], items: [],
+        safeCodes: [], chats: [], notes: [], logs: [],
+        settings: { safeCodeEnabled: false, globalLockout: false }
+    };
+}
+
+async function getDb() {
+    if (convex) {
+        const stored = await convex.query('legacyState:read', {});
+        return stored ? stored.snapshot : emptyDb();
+    }
     if (!fs.existsSync(DB_FILE)) {
-        const initial = {
-            users: [],
-            groups: [],
-            loans: [],
-            fines: [],
-            savings: [],
-            items: [],
-            safeCodes: [],
-            chats: [],
-            notes: [],
-            logs: [],
-            settings: { safeCodeEnabled: false, globalLockout: false }
-        };
+        const initial = emptyDb();
         fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
     }
     const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
     return db;
 }
 
-function saveDb(data) {
+async function saveDb(data) {
+    if (convex) {
+        await convex.mutation('legacyState:write', { snapshot: data });
+        return;
+    }
     // Writing a complete temporary file then renaming it prevents a restart
     // or crash from leaving a partial/corrupt database file behind.
     const tempFile = `${DB_FILE}.${process.pid}.tmp`;
@@ -222,11 +226,7 @@ function runPythonSecurity(payload) {
 // -------------------------------------------------------------
 
 app.get('/api/state', async (req, res) => {
-    if (convex) {
-        try { return res.json(await convex.query('auth:state', {})); }
-        catch (error) { return res.status(503).json({ error: 'Convex database is unavailable.' }); }
-    }
-    const db = getDb();
+    const db = await getDb();
     res.json({
         hasVSuperAdmin: db.users.some(u => u.role === 'v_super_admin'),
         superAdminCount: db.users.filter(u => u.role === 'super_admin').length,
@@ -244,11 +244,7 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
         if (!isValidNationalId(nationalId)) return res.status(400).json({ error: 'Enter a valid 7 or 8 digit National ID.' });
         const secRes = runPythonSecurity({ password, email, safeCode });
         if (!secRes.pw_check) return res.status(400).json({ error: secRes.pw_msg || 'Password fails security entropy rules.' });
-        if (convex) {
-            const result = await convex.mutation('auth:register', { firstName, lastName, email, phone: phone || undefined, nationalId: nationalId || undefined, password, safeCode: safeCode || undefined, roleSelection: roleSelection || undefined, groupId: groupId || undefined });
-            return res.json(result);
-        }
-        const db = getDb();
+        const db = await getDb();
         
         if (db.users.some(u => u.email === email)) {
             return res.status(400).json({ error: 'Email already registered.' });
@@ -330,7 +326,7 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
             timestamp: new Date().toISOString()
         });
 
-        saveDb(db);
+        await saveDb(db);
         res.json({ success: true, user: { id: newUser.id, email: newUser.email, role: newUser.role, firstName, lastName } });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -341,8 +337,7 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password, safeCode } = req.body;
-        if (convex) return res.json(await convex.mutation('auth:login', { email, password, safeCode: safeCode || undefined }));
-        const db = getDb();
+        const db = await getDb();
 
         const user = db.users.find(u => u.email === email);
         if (!user) {
@@ -366,12 +361,12 @@ app.post('/api/auth/login', async (req, res) => {
                 user.locked = true;
                 db.settings.safeCodeEnabled = true;
             }
-            saveDb(db);
+            await saveDb(db);
             return res.status(401).json({ error: `Invalid password. Failed attempts: ${user.failedLogins}/4` });
         }
 
         user.failedLogins = 0;
-        saveDb(db);
+        await saveDb(db);
 
         db.logs.push({
             id: 'l_' + Date.now(),
@@ -381,7 +376,7 @@ app.post('/api/auth/login', async (req, res) => {
             ip: req.ip || '127.0.0.1',
             timestamp: new Date().toISOString()
         });
-        saveDb(db);
+        await saveDb(db);
 
         res.json({
             success: true,
@@ -402,8 +397,8 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Admin overview
-app.get('/api/admin/overview', (req, res) => {
-    const db = getDb();
+app.get('/api/admin/overview', async (req, res) => {
+    const db = await getDb();
     const groupsSummary = db.groups.map(g => {
         const members = db.users.filter(u => u.groupId === g.id && u.role === 'member');
         const loans = db.loans.filter(l => l.groupId === g.id);
@@ -509,7 +504,7 @@ app.get('/api/admin/overview', (req, res) => {
 });
 
 app.post('/api/admin/group-admin', async (req, res) => {
-    const db = getDb();
+    const db = await getDb();
     const { action, adminId, firstName, lastName, email, password, groupName } = req.body;
     if (action === 'create') {
         const cleanGroupName = String(groupName || '').trim();
@@ -543,12 +538,12 @@ app.post('/api/admin/group-admin', async (req, res) => {
         db.users = db.users.filter(u => u.id !== adminId);
         db.groups = db.groups.filter(g => g.groupAdminId !== adminId);
     }
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true });
 });
 
 app.post('/api/admin/super-admin', async (req, res) => {
-    const db = getDb();
+    const db = await getDb();
     const superAdminCount = db.users.filter(u => u.role === 'super_admin').length;
     if (superAdminCount >= 2) {
         return res.status(400).json({ error: 'Maximum limit of 2 Super Admin accounts already reached.' });
@@ -568,12 +563,12 @@ app.post('/api/admin/super-admin', async (req, res) => {
         locked: false
     };
     db.users.push(newSuperAdmin);
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true });
 });
 
 app.post('/api/admin/reset-password', async (req, res) => {
-    const db = getDb();
+    const db = await getDb();
     const { userId, newPassword } = req.body;
     const user = db.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -581,19 +576,19 @@ app.post('/api/admin/reset-password', async (req, res) => {
     user.rawPassword = newPassword;
     user.locked = false;
     user.failedLogins = 0;
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: 'Password reset successfully.' });
 });
 
-app.post('/api/admin/safecode-toggle', (req, res) => {
-    const db = getDb();
+app.post('/api/admin/safecode-toggle', async (req, res) => {
+    const db = await getDb();
     db.settings.safeCodeEnabled = req.body.enabled;
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, safeCodeEnabled: db.settings.safeCodeEnabled });
 });
 
-app.post('/api/admin/notes', (req, res) => {
-    const db = getDb();
+app.post('/api/admin/notes', async (req, res) => {
+    const db = await getDb();
     const { vSuperAdminId, targetGroupId, message } = req.body;
     db.notes.push({
         id: 'n_' + Date.now(),
@@ -602,13 +597,13 @@ app.post('/api/admin/notes', (req, res) => {
         message,
         timestamp: new Date().toISOString()
     });
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true });
 });
 
 // V-Super Admin: view all Group-Admin loan requests awaiting approval
-app.get('/api/admin/loans', (req, res) => {
-    const db = getDb();
+app.get('/api/admin/loans', async (req, res) => {
+    const db = await getDb();
     const loans = db.loans
         .filter(l => l.status === 'pending_vsuper')
         .map(l => {
@@ -632,21 +627,21 @@ app.get('/api/admin/loans', (req, res) => {
 });
 
 // V-Super Admin: approve / reject a Group-Admin loan
-app.post('/api/admin/loan-action', (req, res) => {
-    const db = getDb();
+app.post('/api/admin/loan-action', async (req, res) => {
+    const db = await getDb();
     const { loanId, action } = req.body;
     const loan = db.loans.find(l => l.id === loanId);
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
     loan.status = action; // 'approved' or 'rejected'
     loan.approvedBy = 'v_super_admin';
     loan.approvedAt = new Date().toISOString();
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: `Loan ${action}.` });
 });
 
-app.get('/api/admin/report/:type/:format', (req, res) => {
+app.get('/api/admin/report/:type/:format', async (req, res) => {
     const { type, format } = req.params;
-    const db = getDb();
+    const db = await getDb();
     const filePath = path.join(UPLOADS_DIR, `report_${type}_${Date.now()}.${format}`);
 
     if (format === 'csv') {
@@ -676,8 +671,8 @@ doc.build(story)
     res.status(400).json({ error: 'Invalid format' });
 });
 
-app.get('/api/group/:groupId', (req, res) => {
-    const db = getDb();
+app.get('/api/group/:groupId', async (req, res) => {
+    const db = await getDb();
     const groupId = req.params.groupId;
     const group = db.groups.find(g => g.id === groupId);
     const members = db.users.filter(u => u.groupId === groupId && u.role === 'member');
@@ -699,14 +694,14 @@ app.get('/api/group/:groupId', (req, res) => {
     });
 });
 
-app.get('/api/documents/vsla-agreement.pdf', (req, res) => {
+app.get('/api/documents/vsla-agreement.pdf', async (req, res) => {
     const disposition = req.query.download === '1' ? 'attachment' : 'inline';
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `${disposition}; filename="vsla-member-agreement.pdf"` });
     res.send(buildAgreementPdf());
 });
 
-app.post('/api/profile', upload.single('profilePic'), (req, res) => {
-    const db = getDb();
+app.post('/api/profile', upload.single('profilePic'), async (req, res) => {
+    const db = await getDb();
     const { userId, firstName, lastName, phone } = req.body;
     const user = db.users.find(candidate => candidate.id === userId);
     if (!user) return res.status(404).json({ error: 'User not found.' });
@@ -714,20 +709,20 @@ app.post('/api/profile', upload.single('profilePic'), (req, res) => {
     if (lastName && lastName.trim()) user.lastName = lastName.trim();
     if (phone && phone.trim()) user.phone = phone.trim();
     if (req.file) user.profilePic = `/uploads/${req.file.filename}`;
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, user: { id: user.id, firstName: user.firstName, lastName: user.lastName, phone: user.phone, profilePic: user.profilePic } });
 });
 
 // Per-user summary (member or group admin) — used by dashboards
-app.get('/api/member/summary', (req, res) => {
-    const db = getDb();
+app.get('/api/member/summary', async (req, res) => {
+    const db = await getDb();
     const user = db.users.find(u => u.id === req.query.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ summary: computeMemberSummary(user, db) });
 });
 
-app.post('/api/group/safecode', (req, res) => {
-    const db = getDb();
+app.post('/api/group/safecode', async (req, res) => {
+    const db = await getDb();
     const { groupId } = req.body;
     const code = 'SAFE-' + Math.floor(1000 + Math.random() * 9000);
     db.safeCodes.push({
@@ -739,12 +734,12 @@ app.post('/api/group/safecode', (req, res) => {
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
     });
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, code, expiresAt: db.safeCodes[db.safeCodes.length - 1].expiresAt });
 });
 
 app.post('/api/group/member-action', async (req, res) => {
-    const db = getDb();
+    const db = await getDb();
     const { action, memberId, firstName, lastName, phone, email, password } = req.body;
     const member = db.users.find(u => u.id === memberId);
     if (!member) return res.status(404).json({ error: 'Member not found' });
@@ -765,12 +760,12 @@ app.post('/api/group/member-action', async (req, res) => {
             member.rawPassword = password;
         }
     }
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true });
 });
 
-app.post('/api/group/item', (req, res) => {
-    const db = getDb();
+app.post('/api/group/item', async (req, res) => {
+    const db = await getDb();
     const { groupId, name, description, price } = req.body;
     const amt = parseFloat(price);
     if (isNaN(amt) || amt < 0) {
@@ -785,13 +780,13 @@ app.post('/api/group/item', (req, res) => {
         status: 'available',
         borrowedBy: null
     });
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true });
 });
 
 // Group Admin: create a member with login credentials (member logs in with these)
 app.post('/api/group/member-create', async (req, res) => {
-    const db = getDb();
+    const db = await getDb();
     const { groupId, firstName, lastName, email, phone, nationalId, password } = req.body;
 
     if (!firstName || !lastName || !email || !phone || !nationalId || !password) {
@@ -824,13 +819,13 @@ app.post('/api/group/member-create', async (req, res) => {
     };
     db.users.push(newMember);
     addRegistrationFee(newMember.id, groupId, db);
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: 'Member created. Registration fee KES 200 recorded. They can log in with the provided email and password.' });
 });
 
 // Group Admin: reset a member's password
 app.post('/api/group/member-reset-password', async (req, res) => {
-    const db = getDb();
+    const db = await getDb();
     const { memberId, newPassword } = req.body;
     const member = db.users.find(u => u.id === memberId);
     if (!member) return res.status(404).json({ error: 'Member not found' });
@@ -838,13 +833,13 @@ app.post('/api/group/member-reset-password', async (req, res) => {
     member.rawPassword = newPassword;
     member.locked = false;
     member.failedLogins = 0;
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: 'Member password reset.' });
 });
 
 // Group Admin: fine a member
-app.post('/api/group/fine', (req, res) => {
-    const db = getDb();
+app.post('/api/group/fine', async (req, res) => {
+    const db = await getDb();
     const { groupId, memberId, amount, reason } = req.body;
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) return res.status(400).json({ error: 'Invalid fine amount.' });
@@ -857,25 +852,25 @@ app.post('/api/group/fine', (req, res) => {
         status: 'unpaid',
         createdAt: new Date().toISOString()
     });
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: 'Fine added.' });
 });
 
 // Group Admin: mark a fine as paid
-app.post('/api/group/fine-pay', (req, res) => {
-    const db = getDb();
+app.post('/api/group/fine-pay', async (req, res) => {
+    const db = await getDb();
     const { fineId } = req.body;
     const f = db.fines.find(x => x.id === fineId);
     if (!f) return res.status(404).json({ error: 'Fine not found' });
     f.status = 'paid';
     f.paidAt = new Date().toISOString();
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: 'Fine marked paid.' });
 });
 
 // Weekly savings: any member (or group admin on their behalf) can save KES 200 - 5500
-app.post('/api/savings/add', (req, res) => {
-    const db = getDb();
+app.post('/api/savings/add', async (req, res) => {
+    const db = await getDb();
     const { userId, groupId, amount } = req.body;
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt < 200 || amt > 5500) {
@@ -890,13 +885,13 @@ app.post('/api/savings/add', (req, res) => {
         week: new Date().toISOString().slice(0, 10),
         createdAt: new Date().toISOString()
     });
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: 'Weekly savings recorded (KES ' + amt + ').' });
 });
 
 // Group Admin: borrow a loan that must be APPROVED by V-Super Admin
-app.post('/api/group/loan-apply', (req, res) => {
-    const db = getDb();
+app.post('/api/group/loan-apply', async (req, res) => {
+    const db = await getDb();
     const { groupId, requestedBy, type, amount, itemId } = req.body;
 
     if (type === 'cash') {
@@ -939,12 +934,12 @@ app.post('/api/group/loan-apply', (req, res) => {
             createdAt: new Date().toISOString()
         });
     }
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, message: 'Loan request sent to V-Super Admin for approval.' });
 });
 
-app.post('/api/loans/apply', (req, res) => {
-    const db = getDb();
+app.post('/api/loans/apply', async (req, res) => {
+    const db = await getDb();
     const { userId, groupId, type, amount, itemId } = req.body;
 
     if (type === 'cash') {
@@ -982,28 +977,28 @@ app.post('/api/loans/apply', (req, res) => {
             createdAt: new Date().toISOString()
         });
     }
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true });
 });
 
-app.post('/api/loans/action', (req, res) => {
-    const db = getDb();
+app.post('/api/loans/action', async (req, res) => {
+    const db = await getDb();
     const { loanId, action } = req.body;
     const loan = db.loans.find(l => l.id === loanId);
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
     loan.status = action;
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true });
 });
 
-app.get('/api/chat/:groupId', (req, res) => {
-    const db = getDb();
+app.get('/api/chat/:groupId', async (req, res) => {
+    const db = await getDb();
     const chats = db.chats.filter(c => c.groupId === req.params.groupId);
     res.json({ chats });
 });
 
-app.post('/api/chat', (req, res) => {
-    const db = getDb();
+app.post('/api/chat', async (req, res) => {
+    const db = await getDb();
     const { groupId, senderId, senderName, message } = req.body;
     const chatMsg = {
         id: 'c_' + Date.now(),
@@ -1015,7 +1010,7 @@ app.post('/api/chat', (req, res) => {
         timestamp: new Date().toISOString()
     };
     db.chats.push(chatMsg);
-    saveDb(db);
+    await saveDb(db);
     res.json({ success: true, chatMsg });
 });
 

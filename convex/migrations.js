@@ -167,6 +167,11 @@ export const importLegacySnapshot = mutation({
       safeCodeEnabled: Boolean(settings.safeCodeEnabled),
       globalLockout: Boolean(settings.globalLockout),
     });
+    await ctx.db.insert("legacyState", {
+      key: "primary",
+      snapshot,
+      updatedAt: new Date().toISOString(),
+    });
 
     return Object.fromEntries(
       [
