@@ -165,7 +165,6 @@ export const importLegacySnapshot = mutation({
     await ctx.db.insert("settings", {
       key: "global",
       safeCodeEnabled: Boolean(settings.safeCodeEnabled),
-      registrationEnabled: settings.registrationEnabled !== false,
       globalLockout: Boolean(settings.globalLockout),
     });
 

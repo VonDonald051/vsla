@@ -19,7 +19,7 @@ export const state = query({
     return {
       hasVSuperAdmin: users.some(user => user.role === "v_super_admin"),
       superAdminCount: users.filter(user => user.role === "super_admin").length,
-      settings: settings || { safeCodeEnabled: false, registrationEnabled: true, globalLockout: false },
+      settings: settings || { safeCodeEnabled: false, globalLockout: false },
       userCount: users.length, groupCount: groups.length,
     };
   },
@@ -30,7 +30,6 @@ export const register = mutation({
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
     const settings = await ctx.db.query("settings").withIndex("by_key", q => q.eq("key", "global")).unique();
-    if (settings && !settings.registrationEnabled) throw new Error("Registration is currently disabled by V-Super Admin.");
     if (await ctx.db.query("users").withIndex("by_email", q => q.eq("email", email)).unique()) throw new Error("Email already registered.");
     const users = await ctx.db.query("users").collect();
     let role = roles.includes(args.roleSelection) ? args.roleSelection : "member";

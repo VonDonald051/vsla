@@ -151,7 +151,6 @@ export default defineSchema({
   settings: defineTable({
     key: v.literal("global"),
     safeCodeEnabled: v.boolean(),
-    registrationEnabled: v.boolean(),
     globalLockout: v.boolean(),
   }).index("by_key", ["key"]),
 });

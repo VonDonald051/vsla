@@ -25,28 +25,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const DATA_DIR = (() => {
-    const defaultDir = path.join(__dirname, 'data');
-    try {
-        fs.accessSync(defaultDir, fs.constants.W_OK);
-        return defaultDir;
-    } catch {
-        return '/tmp/data';
-    }
-})();
-const UPLOADS_DIR = (() => {
-    const defaultDir = path.join(__dirname, 'uploads');
-    try {
-        fs.accessSync(defaultDir, fs.constants.W_OK);
-        return defaultDir;
-    } catch {
-        return '/tmp/uploads';
-    }
-})();
+// Set DATA_DIR to a mounted, persistent volume in production.  Do not fall
+// back to /tmp: serverless platforms clear it between instances and would
+// silently lose the association's records.
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
+// Keep uploaded profile images with the database records on persistent
+// storage. UPLOADS_DIR can be a separate mounted volume when desired.
+const UPLOADS_DIR = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+// Persist user uploads first, then fall back to the bundled default avatar.
+app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
@@ -63,19 +55,20 @@ function getDb() {
             chats: [],
             notes: [],
             logs: [],
-            settings: { safeCodeEnabled: false, registrationEnabled: true, globalLockout: false }
+            settings: { safeCodeEnabled: false, globalLockout: false }
         };
         fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
     }
     const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    if (db.settings.registrationEnabled === undefined) {
-        db.settings.registrationEnabled = true;
-    }
     return db;
 }
 
 function saveDb(data) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    // Writing a complete temporary file then renaming it prevents a restart
+    // or crash from leaving a partial/corrupt database file behind.
+    const tempFile = `${DB_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+    fs.renameSync(tempFile, DB_FILE);
 }
 
 // Per-member aggregated summary used by Group Admin & V-Super Admin dashboards
@@ -119,7 +112,7 @@ function addRegistrationFee(userId, groupId, db) {
     });
 }
 
-const storage = process.env.VERCEL ? multer.memoryStorage() : multer.diskStorage({
+const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_DIR),
     filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
@@ -168,11 +161,6 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
         }
         const db = getDb();
         
-        if (!db.settings.registrationEnabled) {
-            return res.status(403).json({ error: 'Registration is currently disabled by V-Super Admin.' });
-        }
-
-
         if (db.users.some(u => u.email === email)) {
             return res.status(400).json({ error: 'Email already registered.' });
         }
@@ -485,13 +473,6 @@ app.post('/api/admin/super-admin', async (req, res) => {
     db.users.push(newSuperAdmin);
     saveDb(db);
     res.json({ success: true });
-});
-
-app.post('/api/admin/registration-toggle', (req, res) => {
-    const db = getDb();
-    db.settings.registrationEnabled = req.body.enabled;
-    saveDb(db);
-    res.json({ success: true, registrationEnabled: db.settings.registrationEnabled });
 });
 
 app.post('/api/admin/reset-password', async (req, res) => {
