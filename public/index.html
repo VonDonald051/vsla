@@ -326,6 +326,8 @@
         .success-banner { background: rgba(46, 160, 67, 0.2); border: 1px solid #3fb950; color: #3fb950; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
 
         .hidden { display: none !important; }
+        .global-actions { position: fixed; right: 18px; bottom: 18px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+        .global-actions .btn { box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
 
         /* Phone and tablet layout: navigation stays reachable without
            consuming the screen, grids reflow, and wide tables scroll inside
@@ -569,6 +571,10 @@
                                 <label>Phone Number</label>
                                 <input type="text" id="regPhone" required>
                             </div>
+                            <div class="input-group">
+                                <label>National ID</label>
+                                <input type="text" id="regNationalId" inputmode="numeric" pattern="[0-9]{7,8}" placeholder="7 or 8 digit National ID" required>
+                            </div>
                             <div class="grid-2">
                                 <div class="input-group">
                                     <label>Password</label>
@@ -613,6 +619,7 @@
                 formData.append('lastName', document.getElementById('regLastName').value);
                 formData.append('email', document.getElementById('regEmail').value);
                 formData.append('phone', document.getElementById('regPhone').value);
+                formData.append('nationalId', document.getElementById('regNationalId').value);
                 formData.append('password', document.getElementById('regPassword').value);
                 formData.append('confirmPassword', document.getElementById('regConfirmPassword').value);
                 formData.append('roleSelection', document.getElementById('regRole').value);
@@ -809,6 +816,7 @@
                             <div class="card">
                                 <h3>Create Group Admin Account</h3>
                                 <form id="createGroupAdminForm" class="grid-2">
+                                    <input type="text" id="gaGroupName" placeholder="Group Name (assigned by V-Super Admin)" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;grid-column:span 2;">
                                     <input type="text" id="gaFirst" placeholder="First Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
                                     <input type="text" id="gaLast" placeholder="Last Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
                                     <input type="email" id="gaEmail" placeholder="Email" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
@@ -854,6 +862,7 @@
             if (currentUser.role === 'v_super_admin') {
                 document.getElementById('createGroupAdminForm').addEventListener('submit', async (e) => {
                     e.preventDefault();
+                    const groupName = document.getElementById('gaGroupName').value;
                     const firstName = document.getElementById('gaFirst').value;
                     const lastName = document.getElementById('gaLast').value;
                     const email = document.getElementById('gaEmail').value;
@@ -862,11 +871,14 @@
                     const res = await fetch('/api/admin/group-admin', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'create', firstName, lastName, email, password })
+                        body: JSON.stringify({ action: 'create', groupName, firstName, lastName, email, password })
                     });
                     if (res.ok) {
                         alert('Group Admin created successfully!');
                         renderAdminDashboard();
+                    } else {
+                        const data = await res.json();
+                        alert(data.error || 'Unable to create group.');
                     }
                 });
             }
@@ -1106,6 +1118,7 @@
                                 <input type="text" id="cmLast" placeholder="Last Name" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
                                 <input type="email" id="cmEmail" placeholder="Email" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
                                 <input type="text" id="cmPhone" placeholder="Phone Number" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
+                                <input type="text" id="cmNationalId" inputmode="numeric" pattern="[0-9]{7,8}" placeholder="National ID (7 or 8 digits)" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
                                 <input type="password" id="cmPass" placeholder="Login Password" required style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
                                 <button type="submit" class="btn btn-success" style="grid-column: span 2;">Create Member</button>
                             </form>
@@ -1113,6 +1126,7 @@
 
                         <div class="card">
                             <h3>Safe Code Generator</h3>
+                            <p style="font-size:13px;color:#8b949e;margin-bottom:10px;">Each generated code expires five minutes after it is created.</p>
                             <button class="btn btn-success" onclick="generateSafeCode()">Generate Safe Code</button>
                         </div>
                         <div class="card">
@@ -1184,6 +1198,7 @@
                             lastName: document.getElementById('cmLast').value,
                             email: document.getElementById('cmEmail').value,
                             phone: document.getElementById('cmPhone').value,
+                            nationalId: document.getElementById('cmNationalId').value,
                             password: document.getElementById('cmPass').value
                         })
                     });
@@ -1627,7 +1642,7 @@
                 body: JSON.stringify({ groupId: currentUser.groupId })
             });
             const data = await res.json();
-            alert('Safe Code: ' + data.code);
+            alert('Safe Code: ' + data.code + '\nExpires: ' + new Date(data.expiresAt).toLocaleTimeString());
             renderGroupAdminDashboard();
         }
 
@@ -1773,6 +1788,61 @@
             });
             renderAdminUsers();
         }
+
+        function refreshCurrentView() {
+            if (!currentUser) return initApp();
+            if (currentUser.role === 'v_super_admin' || currentUser.role === 'super_admin') return renderAdminDashboard();
+            if (currentUser.role === 'group_admin') return renderGroupAdminDashboard();
+            return renderMemberDashboard();
+        }
+
+        function renderProfile() {
+            if (!currentUser) return initApp();
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="login-wrapper">
+                    <div class="login-container" style="width:500px;">
+                        <h2>My Profile</h2>
+                        <img src="${currentUser.profilePic || '/uploads/default-avatar.svg'}" alt="Current profile" style="width:92px;height:92px;border-radius:50%;object-fit:cover;border:3px solid #00f2fe;margin-bottom:20px;">
+                        <div id="profileAlert"></div>
+                        <form id="profileForm" enctype="multipart/form-data">
+                            <div class="grid-2">
+                                <div class="input-group"><label>First Name</label><input id="profileFirstName" value="${currentUser.firstName || ''}" required></div>
+                                <div class="input-group"><label>Last Name</label><input id="profileLastName" value="${currentUser.lastName || ''}" required></div>
+                            </div>
+                            <div class="input-group"><label>Phone Number</label><input id="profilePhone" value="${currentUser.phone || ''}"></div>
+                            <div class="input-group"><label>Change Profile Picture</label><input type="file" id="profilePic" accept="image/*"></div>
+                            <button class="btn-primary" type="submit">Save Profile</button>
+                        </form>
+                        <button class="btn btn-secondary" style="margin-top:15px;" onclick="refreshCurrentView()">Back to Dashboard</button>
+                    </div>
+                </div>`;
+            document.getElementById('profileForm').addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const form = new FormData();
+                form.append('userId', currentUser.id);
+                form.append('firstName', document.getElementById('profileFirstName').value);
+                form.append('lastName', document.getElementById('profileLastName').value);
+                form.append('phone', document.getElementById('profilePhone').value);
+                const picture = document.getElementById('profilePic').files[0];
+                if (picture) form.append('profilePic', picture);
+                const response = await fetch('/api/profile', { method: 'POST', body: form });
+                const data = await response.json();
+                if (!response.ok) { document.getElementById('profileAlert').innerHTML = `<div class="error-banner">${data.error || 'Profile could not be updated.'}</div>`; return; }
+                Object.assign(currentUser, data.user);
+                alert('Profile updated.');
+                refreshCurrentView();
+            });
+        }
+
+        const appRoot = document.getElementById('app');
+        new MutationObserver(() => {
+            if (!currentUser || document.querySelector('.global-actions')) return;
+            const actions = document.createElement('div');
+            actions.className = 'global-actions';
+            actions.innerHTML = '<button class="btn btn-secondary" onclick="refreshCurrentView()">↻ Refresh</button><button class="btn btn-secondary" onclick="renderProfile()">👤 My Profile</button><a class="btn btn-secondary" href="/api/documents/vsla-agreement.pdf" target="_blank" rel="noopener">📖 Rules & Policy</a><a class="btn btn-success" href="/api/documents/vsla-agreement.pdf?download=1" download>⬇ Download PDF</a>';
+            appRoot.appendChild(actions);
+        }).observe(appRoot, { childList: true });
 
         function logout() {
             currentUser = null;

@@ -89,6 +89,76 @@ function saveDb(data) {
     fs.renameSync(tempFile, DB_FILE);
 }
 
+function isValidNationalId(nationalId) {
+    return /^\d{7,8}$/.test(String(nationalId || '').trim());
+}
+
+function pdfEscape(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function buildAgreementPdf() {
+    const lines = [
+        'VSLA MEMBER AGREEMENT: RULES AND POLICY',
+        'Version 1.0 | Read, discuss with your group, and keep a copy.',
+        '',
+        '1. PURPOSE AND MEMBERSHIP',
+        'This VSLA is a member-led savings and lending group. Members participate fairly,',
+        'attend meetings, follow the approved constitution, and keep group information private.',
+        '',
+        '2. SAVINGS, LOANS AND RECORDS',
+        'The group agrees its share value, meeting schedule, loan limit, service fee, repayment',
+        'period, social fund and fines in writing. All savings, loans, repayments and fines must',
+        'be recorded and members may inspect group records at meetings.',
+        '',
+        '3. FAIR GOVERNANCE AND CONDUCT',
+        'Members have an equal voice in group decisions. No discrimination, intimidation, fraud,',
+        'or misuse of group funds is allowed. Changes to rules must be discussed, recorded, and',
+        'approved under the group constitution before they take effect.',
+        '',
+        '4. PRIVACY AND NATIONAL ID',
+        'The system collects National ID and contact details only to identify members, prevent',
+        'duplicate accounts, and administer the VSLA. Do not share another member’s details.',
+        'Ask the administrator about correcting your details or withdrawing where legally allowed.',
+        '',
+        '5. DISPUTES AND ACKNOWLEDGEMENT',
+        'Raise concerns first with the group committee and record the outcome. Members acknowledge',
+        'that this document is a group policy template, not legal or financial advice. Review it',
+        'with qualified local advice before registering a co-operative or offering regulated services.',
+        '',
+        'Sources used for this template: CARE VSLA 101 (constitution and group-defined rules);',
+        'Kenya Co-operative Societies Act (member participation and information); Kenya Data',
+        'Protection Act, 2019 (lawful, minimal and secure processing of personal data).',
+        '',
+        'Member name: ____________________  National ID: ____________________',
+        'Signature: _______________________ Date: __________________________'
+    ];
+    const stream = ['BT', '/F1 10 Tf', '50 760 Td', '14 TL'];
+    lines.forEach((line, index) => {
+        stream.push(`(${pdfEscape(line)}) Tj`);
+        if (index !== lines.length - 1) stream.push('T*');
+    });
+    stream.push('ET');
+    const objects = [
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+        `<< /Length ${Buffer.byteLength(stream.join('\n'))} >>\nstream\n${stream.join('\n')}\nendstream`,
+        '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+    ];
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+    objects.forEach((object, index) => {
+        offsets.push(Buffer.byteLength(pdf));
+        pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    });
+    const xref = Buffer.byteLength(pdf);
+    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    offsets.slice(1).forEach(offset => { pdf += `${String(offset).padStart(10, '0')} 00000 n \n`; });
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    return Buffer.from(pdf, 'utf8');
+}
+
 // Per-member aggregated summary used by Group Admin & V-Super Admin dashboards
 function computeMemberSummary(member, db) {
     const savings = db.savings.filter(s => s.userId === member.id);
@@ -169,18 +239,22 @@ app.get('/api/state', async (req, res) => {
 // Register user: allows registering V-Super Admin and up to two Super Admins without safe code
 app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => {
     try {
-        const { firstName, lastName, email, phone, password, confirmPassword, safeCode, roleSelection, groupId } = req.body;
+        const { firstName, lastName, email, phone, nationalId, password, confirmPassword, safeCode, roleSelection, groupId } = req.body;
         if (password !== confirmPassword) return res.status(400).json({ error: 'Passwords do not match.' });
+        if (!isValidNationalId(nationalId)) return res.status(400).json({ error: 'Enter a valid 7 or 8 digit National ID.' });
         const secRes = runPythonSecurity({ password, email, safeCode });
         if (!secRes.pw_check) return res.status(400).json({ error: secRes.pw_msg || 'Password fails security entropy rules.' });
         if (convex) {
-            const result = await convex.mutation('auth:register', { firstName, lastName, email, phone: phone || undefined, password, safeCode: safeCode || undefined, roleSelection: roleSelection || undefined, groupId: groupId || undefined });
+            const result = await convex.mutation('auth:register', { firstName, lastName, email, phone: phone || undefined, nationalId: nationalId || undefined, password, safeCode: safeCode || undefined, roleSelection: roleSelection || undefined, groupId: groupId || undefined });
             return res.json(result);
         }
         const db = getDb();
         
         if (db.users.some(u => u.email === email)) {
             return res.status(400).json({ error: 'Email already registered.' });
+        }
+        if (db.users.some(u => u.nationalId === nationalId.trim())) {
+            return res.status(400).json({ error: 'National ID is already registered.' });
         }
 
         // Determine role assignment
@@ -200,7 +274,7 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
         } else {
             // Regular member requires safe code if enabled
             if (db.settings.safeCodeEnabled) {
-                const validCode = db.safeCodes.find(sc => sc.code === safeCode && sc.active && !sc.used);
+                const validCode = db.safeCodes.find(sc => sc.code === safeCode && sc.active && !sc.used && new Date(sc.expiresAt) > new Date());
                 if (!validCode) {
                     return res.status(400).json({ error: 'Invalid or expired Safe Code required for member registration.' });
                 }
@@ -217,6 +291,7 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
             lastName,
             email,
             phone,
+            nationalId: nationalId.trim(),
             passwordHash: hashedPassword,
             rawPassword: password,
             role: assignedRole,
@@ -275,7 +350,7 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         if (user.locked) {
-            const validCode = db.safeCodes.find(sc => sc.code === safeCode && sc.active && !sc.used);
+            const validCode = db.safeCodes.find(sc => sc.code === safeCode && sc.active && !sc.used && new Date(sc.expiresAt) > new Date());
             if (!validCode) {
                 return res.status(403).json({ error: 'Account is locked due to 4 failed password attempts. Enter valid Safe Code to unlock.' });
             }
@@ -315,9 +390,10 @@ app.post('/api/auth/login', async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                role: user.role,
-                groupId: user.groupId,
-                profilePic: user.profilePic
+            role: user.role,
+            groupId: user.groupId,
+            phone: user.phone,
+            profilePic: user.profilePic
             }
         });
     } catch (e) {
@@ -434,12 +510,15 @@ app.get('/api/admin/overview', (req, res) => {
 
 app.post('/api/admin/group-admin', async (req, res) => {
     const db = getDb();
-    const { action, adminId, firstName, lastName, email, password } = req.body;
+    const { action, adminId, firstName, lastName, email, password, groupName } = req.body;
     if (action === 'create') {
+        const cleanGroupName = String(groupName || '').trim();
+        if (cleanGroupName.length < 3) return res.status(400).json({ error: 'Enter a group name of at least 3 characters.' });
+        if (db.groups.some(group => group.name.toLowerCase() === cleanGroupName.toLowerCase())) return res.status(400).json({ error: 'That group name is already in use.' });
         const hashedPassword = await bcrypt.hash(password, 10);
         const newGroup = {
             id: 'g_' + Date.now(),
-            name: `${firstName}'s Group`,
+            name: cleanGroupName,
             groupAdminId: 'tmp_' + Date.now(),
             maxMembers: 40,
             description: 'Group managed by ' + firstName
@@ -620,6 +699,25 @@ app.get('/api/group/:groupId', (req, res) => {
     });
 });
 
+app.get('/api/documents/vsla-agreement.pdf', (req, res) => {
+    const disposition = req.query.download === '1' ? 'attachment' : 'inline';
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `${disposition}; filename="vsla-member-agreement.pdf"` });
+    res.send(buildAgreementPdf());
+});
+
+app.post('/api/profile', upload.single('profilePic'), (req, res) => {
+    const db = getDb();
+    const { userId, firstName, lastName, phone } = req.body;
+    const user = db.users.find(candidate => candidate.id === userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (firstName && firstName.trim()) user.firstName = firstName.trim();
+    if (lastName && lastName.trim()) user.lastName = lastName.trim();
+    if (phone && phone.trim()) user.phone = phone.trim();
+    if (req.file) user.profilePic = `/uploads/${req.file.filename}`;
+    saveDb(db);
+    res.json({ success: true, user: { id: user.id, firstName: user.firstName, lastName: user.lastName, phone: user.phone, profilePic: user.profilePic } });
+});
+
 // Per-user summary (member or group admin) — used by dashboards
 app.get('/api/member/summary', (req, res) => {
     const db = getDb();
@@ -638,10 +736,11 @@ app.post('/api/group/safecode', (req, res) => {
         groupId,
         active: true,
         used: false,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
     });
     saveDb(db);
-    res.json({ success: true, code });
+    res.json({ success: true, code, expiresAt: db.safeCodes[db.safeCodes.length - 1].expiresAt });
 });
 
 app.post('/api/group/member-action', async (req, res) => {
@@ -693,13 +792,17 @@ app.post('/api/group/item', (req, res) => {
 // Group Admin: create a member with login credentials (member logs in with these)
 app.post('/api/group/member-create', async (req, res) => {
     const db = getDb();
-    const { groupId, firstName, lastName, email, phone, password } = req.body;
+    const { groupId, firstName, lastName, email, phone, nationalId, password } = req.body;
 
-    if (!firstName || !lastName || !email || !phone || !password) {
+    if (!firstName || !lastName || !email || !phone || !nationalId || !password) {
         return res.status(400).json({ error: 'All member fields are required.' });
     }
+    if (!isValidNationalId(nationalId)) return res.status(400).json({ error: 'Enter a valid 7 or 8 digit National ID.' });
     if (db.users.some(u => u.email === email)) {
         return res.status(400).json({ error: 'Email already registered.' });
+    }
+    if (db.users.some(u => u.nationalId === nationalId.trim())) {
+        return res.status(400).json({ error: 'National ID is already registered.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -709,6 +812,7 @@ app.post('/api/group/member-create', async (req, res) => {
         lastName,
         email,
         phone,
+        nationalId: nationalId.trim(),
         passwordHash: hashedPassword,
         rawPassword: password,
         role: 'member',

@@ -6,7 +6,7 @@ const roles = ["v_super_admin", "super_admin", "group_admin", "member"];
 const clean = (value) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
 const publicUser = (user) => ({
   id: user.externalId, firstName: user.firstName, lastName: user.lastName,
-  email: user.email, role: user.role, groupId: user.groupExternalId,
+  email: user.email, phone: user.phone, role: user.role, groupId: user.groupExternalId,
   profilePic: user.profilePic,
 });
 
@@ -26,24 +26,25 @@ export const state = query({
 });
 
 export const register = mutation({
-  args: { firstName: v.string(), lastName: v.string(), email: v.string(), phone: v.optional(v.string()), password: v.string(), safeCode: v.optional(v.string()), roleSelection: v.optional(v.string()), groupId: v.optional(v.string()) },
+  args: { firstName: v.string(), lastName: v.string(), email: v.string(), phone: v.optional(v.string()), nationalId: v.optional(v.string()), password: v.string(), safeCode: v.optional(v.string()), roleSelection: v.optional(v.string()), groupId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
     const settings = await ctx.db.query("settings").withIndex("by_key", q => q.eq("key", "global")).unique();
     if (await ctx.db.query("users").withIndex("by_email", q => q.eq("email", email)).unique()) throw new Error("Email already registered.");
     const users = await ctx.db.query("users").collect();
+    if (args.nationalId && users.some(user => user.nationalId === args.nationalId.trim())) throw new Error("National ID is already registered.");
     let role = roles.includes(args.roleSelection) ? args.roleSelection : "member";
     if (!users.some(user => user.role === "v_super_admin")) role = "v_super_admin";
     if (role === "super_admin" && users.filter(user => user.role === "super_admin").length >= 2) throw new Error("Maximum limit of 2 Super Admin accounts already reached.");
     if (role === "member" && settings?.safeCodeEnabled) {
       const code = await ctx.db.query("safeCodes").withIndex("by_code", q => q.eq("code", args.safeCode || "")).unique();
-      if (!code || !code.active || code.used) throw new Error("Invalid or expired Safe Code required for member registration.");
+      if (!code || !code.active || code.used || !code.expiresAt || new Date(code.expiresAt) <= new Date()) throw new Error("Invalid or expired Safe Code required for member registration.");
       await ctx.db.patch(code._id, { used: true });
     }
     const stamp = Date.now().toString();
     const externalId = `u_${stamp}`;
     const groupId = role === "group_admin" ? `g_${stamp}` : (clean(args.groupId) || "g_default");
-    await ctx.db.insert("users", { externalId, firstName: args.firstName.trim(), lastName: args.lastName.trim(), email, phone: clean(args.phone), passwordHash: await bcrypt.hash(args.password, 10), role, groupExternalId: groupId, failedLogins: 0, locked: false, createdAt: new Date().toISOString() });
+    await ctx.db.insert("users", { externalId, firstName: args.firstName.trim(), lastName: args.lastName.trim(), email, phone: clean(args.phone), nationalId: clean(args.nationalId), passwordHash: await bcrypt.hash(args.password, 10), role, groupExternalId: groupId, failedLogins: 0, locked: false, createdAt: new Date().toISOString() });
     if (role === "group_admin") await ctx.db.insert("groups", { externalId: groupId, name: `${args.firstName.trim()}'s Group`, groupAdminExternalId: externalId, maxMembers: 40, description: `Group managed by ${args.firstName.trim()}` });
     if (role === "member") await ctx.db.insert("savings", { externalId: `s_${stamp}`, userExternalId: externalId, groupExternalId: groupId, amount: 200, type: "registration", week: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString() });
     await ctx.db.insert("logs", { externalId: `l_${stamp}`, email, action: `REGISTER_${role.toUpperCase()}`, status: "SUCCESS", timestamp: new Date().toISOString() });

@@ -10,6 +10,7 @@ export default defineSchema({
     lastName: v.string(),
     email: v.string(),
     phone: v.optional(v.string()),
+    nationalId: v.optional(v.string()),
     passwordHash: v.string(),
     role: v.union(
       v.literal("v_super_admin"),
@@ -109,6 +110,7 @@ export default defineSchema({
     active: v.boolean(),
     used: v.boolean(),
     createdAt: v.string(),
+    expiresAt: v.optional(v.string()),
   })
     .index("by_external_id", ["externalId"])
     .index("by_code", ["code"])
