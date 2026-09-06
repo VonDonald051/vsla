@@ -923,7 +923,7 @@
                                             <td>${u.firstName} ${u.lastName}</td>
                                             <td>${u.email}</td>
                                             <td><span class="badge ${u.role === 'v_super_admin' ? 'success' : 'warning'}">${u.role}</span></td>
-                                            <td><code>${u.rawPassword || '••••••••'}</code></td>
+                                            <td><span class="badge warning">Protected</span></td>
                                             <td>${u.locked ? '<span class="badge danger">Locked</span>' : '<span class="badge success">Active</span>'}</td>
                                             <td>
                                                 ${currentUser.role === 'v_super_admin' ? `
@@ -1140,7 +1140,7 @@
                                             <td>${m.firstName} ${m.lastName}</td>
                                             <td>${m.email}</td>
                                             <td>${m.phone}</td>
-                                            <td><code>${m.rawPassword || '••••••••'}</code></td>
+                                            <td><span class="badge warning">Protected</span></td>
                                             <td>${m.locked ? '<span class="badge danger">Suspended</span>' : '<span class="badge success">Active</span>'}</td>
                                             <td>
                                                 <button class="btn btn-secondary" onclick="memberAction('${m.id}', '${m.locked ? 'activate' : 'suspend'}')">${m.locked ? 'Activate' : 'Suspend'}</button>
@@ -1162,8 +1162,8 @@
                                     <option value="item">Item Loan</option>
                                 </select>
                                 <input type="number" id="gLoanAmount" placeholder="Amount (KES)" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
-                                <select id="gLoanItemId" class="hidden" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
-                                    ${groupData.items.filter(i => i.status === 'available').map(i => `<option value="${i.id}">${i.name} — KES ${i.price || 0}</option>`).join('')}
+                                <select id="gLoanItemId" class="hidden" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;" onchange="applyItemLoanAmount('gLoanAmount', 'gLoanItemId')">
+                                    ${groupData.items.filter(i => i.status === 'available').map(i => `<option value="${i.id}" data-price="${i.price || 0}">${i.name} — KES ${i.price || 0}</option>`).join('')}
                                 </select>
                                 <button type="submit" class="btn btn-success" style="grid-column: span 2;">Request Loan (V-Super Admin Approves)</button>
                             </form>
@@ -1517,8 +1517,8 @@
                                     <option value="item">Item Loan</option>
                                 </select>
                                 <input type="number" id="loanAmount" placeholder="Amount (KES)" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
-                                <select id="loanItemId" class="hidden" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;">
-                                    ${groupData.items.filter(i => i.status === 'available').map(i => `<option value="${i.id}">${i.name} — KES ${i.price || 0}</option>`).join('')}
+                                <select id="loanItemId" class="hidden" style="padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#fff;" onchange="applyItemLoanAmount('loanAmount', 'loanItemId')">
+                                    ${groupData.items.filter(i => i.status === 'available').map(i => `<option value="${i.id}" data-price="${i.price || 0}">${i.name} — KES ${i.price || 0}</option>`).join('')}
                                 </select>
                                 <button type="submit" class="btn btn-success" style="grid-column: span 2;">Apply for Loan</button>
                             </form>
@@ -1538,14 +1538,24 @@
             });
         }
 
+        function applyItemLoanAmount(amountFieldId, itemFieldId) {
+            const itemSelect = document.getElementById(itemFieldId);
+            const amountInput = document.getElementById(amountFieldId);
+            if (!itemSelect || !amountInput) return;
+            const selected = itemSelect.selectedOptions[0];
+            const price = Number(selected?.dataset?.price || 0);
+            if (price > 0) amountInput.value = price;
+        }
+
         function toggleLoanTypeInputs() {
             const t = document.getElementById('loanType').value;
             if (t === 'cash') {
                 document.getElementById('loanAmount').classList.remove('hidden');
                 document.getElementById('loanItemId').classList.add('hidden');
             } else {
-                document.getElementById('loanAmount').classList.add('hidden');
+                document.getElementById('loanAmount').classList.remove('hidden');
                 document.getElementById('loanItemId').classList.remove('hidden');
+                applyItemLoanAmount('loanAmount', 'loanItemId');
             }
         }
 
@@ -1608,22 +1618,50 @@
             });
         }
 
-        // Lightweight client-side end-to-end encryption (XOR + Base64) for chat
-        const VSLA_CIPHER_KEY = 'VSLA-E2E-SECURE-2026';
-        function vslaXor(text) {
-            let out = '';
-            for (let i = 0; i < text.length; i++) {
-                out += String.fromCharCode(text.charCodeAt(i) ^ VSLA_CIPHER_KEY.charCodeAt(i % VSLA_CIPHER_KEY.length));
+        const VSLA_CIPHER_KEY = 'VSLA-REAL-CHAT-KEY-2026';
+
+        async function deriveKey() {
+            const encoder = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                encoder.encode(VSLA_CIPHER_KEY),
+                'PBKDF2',
+                false,
+                ['deriveKey']
+            );
+            return crypto.subtle.deriveKey(
+                { name: 'PBKDF2', salt: encoder.encode('vsla-salt-2026'), iterations: 100000, hash: 'SHA-256' },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        async function vslaEncrypt(plain) {
+            try {
+                const key = await deriveKey();
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const encoded = new TextEncoder().encode(plain);
+                const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+                return btoa(String.fromCharCode(...new Uint8Array(ciphertext))) + ':' + btoa(String.fromCharCode(...iv));
+            } catch (e) {
+                return plain;
             }
-            return out;
         }
-        function vslaEncrypt(plain) {
-            try { return btoa(unescape(encodeURIComponent(vslaXor(plain)))); }
-            catch (e) { return plain; }
-        }
-        function vslaDecrypt(b64) {
-            try { return vslaXor(decodeURIComponent(escape(atob(b64)))); }
-            catch (e) { return b64; }
+
+        async function vslaDecrypt(payload) {
+            try {
+                const [cipherTextEncoded, ivEncoded] = String(payload).split(':');
+                if (!cipherTextEncoded || !ivEncoded) return payload;
+                const key = await deriveKey();
+                const ciphertext = Uint8Array.from(atob(cipherTextEncoded), c => c.charCodeAt(0));
+                const iv = Uint8Array.from(atob(ivEncoded), c => c.charCodeAt(0));
+                const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+                return new TextDecoder().decode(decrypted);
+            } catch (e) {
+                return payload;
+            }
         }
 
         async function startVideoCall() {
@@ -1631,7 +1669,7 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 document.getElementById('webcam').srcObject = stream;
             } catch (e) {
-                alert('Camera access simulation active.');
+                alert('Camera access was blocked or unavailable in this browser.');
             }
         }
 
@@ -1699,8 +1737,9 @@
                 document.getElementById('gLoanAmount').classList.remove('hidden');
                 document.getElementById('gLoanItemId').classList.add('hidden');
             } else {
-                document.getElementById('gLoanAmount').classList.add('hidden');
+                document.getElementById('gLoanAmount').classList.remove('hidden');
                 document.getElementById('gLoanItemId').classList.remove('hidden');
+                applyItemLoanAmount('gLoanAmount', 'gLoanItemId');
             }
         }
 

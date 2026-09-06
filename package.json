@@ -1,19 +1,17 @@
 {
-  "name": "user",
+  "name": "vsla",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "convex:dev": "convex dev",
-    "convex:migrate": "node scripts/migrate-json-to-convex.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Secure VSLA group management system",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "convex": "^1.42.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",

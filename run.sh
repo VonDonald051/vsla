@@ -10,8 +10,7 @@ if ! python3 -c "import flask, reportlab, bcrypt, cryptography, pypdf" 2>/dev/nu
     pip install flask reportlab pandas bcrypt cryptography pypdf
 fi
 
-# Keep existing data. Resetting db.json here would erase the source snapshot
-# needed by the Convex migration and would delete real VSLA records on restart.
+# Keep existing data. Resetting db.json would delete real VSLA records on restart.
 mkdir -p data
 if [ ! -f data/db.json ]; then
     echo '{"users":[],"groups":[],"loans":[],"fines":[],"savings":[],"items":[],"safeCodes":[],"chats":[],"notes":[],"logs":[],"settings":{"safeCodeEnabled":false,"globalLockout":false}}' > data/db.json

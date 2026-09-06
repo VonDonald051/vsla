@@ -5,7 +5,6 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { execSync } = require('child_process');
-const { ConvexHttpClient } = require('convex/browser');
 
 // Vercel supplies environment variables directly; this also supports the
 // existing local .env file without adding another dependency.
@@ -19,9 +18,29 @@ if (fs.existsSync(ENV_FILE)) {
 
 const app = express();
 const PORT = process.env.PORT || 8000;
-const convex = process.env.CONVEX_URL ? new ConvexHttpClient(process.env.CONVEX_URL) : null;
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:8000,http://127.0.0.1:8000').split(',').map(s => s.trim()).filter(Boolean);
 
-app.use(cors());
+app.disable('x-powered-by');
+app.use(cors({
+    origin: function(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Origin not allowed by CORS policy'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';");
+    next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -69,10 +88,6 @@ function emptyDb() {
 }
 
 async function getDb() {
-    if (convex) {
-        const stored = await convex.query('legacyState:read', {});
-        return stored ? stored.snapshot : emptyDb();
-    }
     if (!fs.existsSync(DB_FILE)) {
         const initial = emptyDb();
         fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
@@ -81,16 +96,31 @@ async function getDb() {
     return db;
 }
 
+function sanitizeDbForStorage(data) {
+    if (!data || !Array.isArray(data.users)) return data;
+    return {
+        ...data,
+        users: data.users.map(user => {
+            if (!user) return user;
+            const { rawPassword, ...rest } = user;
+            return rest;
+        })
+    };
+}
+
 async function saveDb(data) {
-    if (convex) {
-        await convex.mutation('legacyState:write', { snapshot: data });
-        return;
-    }
     // Writing a complete temporary file then renaming it prevents a restart
     // or crash from leaving a partial/corrupt database file behind.
     const tempFile = `${DB_FILE}.${process.pid}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+    const cleanedData = sanitizeDbForStorage(data);
+    fs.writeFileSync(tempFile, JSON.stringify(cleanedData, null, 2));
     fs.renameSync(tempFile, DB_FILE);
+}
+
+function sanitizeUser(user) {
+    if (!user) return user;
+    const { rawPassword, passwordHash, ...safeUser } = user;
+    return safeUser;
 }
 
 function isValidNationalId(nationalId) {
@@ -289,7 +319,6 @@ app.post('/api/auth/register', upload.single('profilePic'), async (req, res) => 
             phone,
             nationalId: nationalId.trim(),
             passwordHash: hashedPassword,
-            rawPassword: password,
             role: assignedRole,
             groupId: groupId || (db.groups[0] ? db.groups[0].id : 'g_default'),
             profilePic,
@@ -484,19 +513,7 @@ app.get('/api/admin/overview', async (req, res) => {
             requestedBy: l.requestedBy, createdAt: l.createdAt
         })),
         loanSavingsDetails,
-        allUsers: db.users.map(u => ({
-            id: u.id,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            email: u.email,
-            role: u.role,
-            rawPassword: u.rawPassword,
-            locked: u.locked,
-            failedLogins: u.failedLogins,
-            groupId: u.groupId,
-            phone: u.phone,
-            profilePic: u.profilePic
-        })),
+        allUsers: db.users.map(sanitizeUser),
         notes: db.notes,
         logs: db.logs,
         settings: db.settings
@@ -524,7 +541,6 @@ app.post('/api/admin/group-admin', async (req, res) => {
             lastName,
             email,
             passwordHash: hashedPassword,
-            rawPassword: password,
             role: 'group_admin',
             groupId: newGroup.id,
             profilePic: '/uploads/default-avatar.svg',
@@ -556,7 +572,6 @@ app.post('/api/admin/super-admin', async (req, res) => {
         lastName,
         email,
         passwordHash: hashedPassword,
-        rawPassword: password,
         role: 'super_admin',
         profilePic: '/uploads/default-avatar.svg',
         failedLogins: 0,
@@ -573,7 +588,6 @@ app.post('/api/admin/reset-password', async (req, res) => {
     const user = db.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     user.passwordHash = await bcrypt.hash(newPassword, 10);
-    user.rawPassword = newPassword;
     user.locked = false;
     user.failedLogins = 0;
     await saveDb(db);
@@ -757,7 +771,6 @@ app.post('/api/group/member-action', async (req, res) => {
         if (email) member.email = email;
         if (password) {
             member.passwordHash = await bcrypt.hash(password, 10);
-            member.rawPassword = password;
         }
     }
     await saveDb(db);
@@ -809,7 +822,6 @@ app.post('/api/group/member-create', async (req, res) => {
         phone,
         nationalId: nationalId.trim(),
         passwordHash: hashedPassword,
-        rawPassword: password,
         role: 'member',
         groupId,
         profilePic: '/uploads/default-avatar.svg',
@@ -830,7 +842,6 @@ app.post('/api/group/member-reset-password', async (req, res) => {
     const member = db.users.find(u => u.id === memberId);
     if (!member) return res.status(404).json({ error: 'Member not found' });
     member.passwordHash = await bcrypt.hash(newPassword, 10);
-    member.rawPassword = newPassword;
     member.locked = false;
     member.failedLogins = 0;
     await saveDb(db);
