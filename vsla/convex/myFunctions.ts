@@ -1,6 +1,10 @@
 import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
-import crypto from 'crypto';
+
+// Generate a simple UUID-like string
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
 
 /**
  * Get or create a user from WorkOS authentication data
@@ -33,7 +37,7 @@ export const upsertUserFromWorkOS = mutation({
       return user._id;
     } else {
       // Create new user
-      const userId = crypto.randomUUID();
+      const userId = generateId();
       const newUserId = await ctx.db.insert('users', {
         id: userId,
         email: args.email,
@@ -115,7 +119,7 @@ export const createGroup = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const groupId = crypto.randomUUID();
+    const groupId = generateId();
     await ctx.db.insert('groups', {
       id: groupId,
       name: args.name,
@@ -162,7 +166,7 @@ export const createLoan = mutation({
     requestedByRole: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const loanId = crypto.randomUUID();
+    const loanId = generateId();
     const totalOwed = args.amount + args.profit;
     
     await ctx.db.insert('loans', {
@@ -239,7 +243,7 @@ export const createSavings = mutation({
     week: v.string(),
   },
   handler: async (ctx, args) => {
-    const savingId = crypto.randomUUID();
+    const savingId = generateId();
     
     await ctx.db.insert('savings', {
       id: savingId,
@@ -282,7 +286,7 @@ export const createFine = mutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    const fineId = crypto.randomUUID();
+    const fineId = generateId();
     
     await ctx.db.insert('fines', {
       id: fineId,
@@ -324,7 +328,7 @@ export const sendMessage = mutation({
     message: v.string(),
   },
   handler: async (ctx, args) => {
-    const chatId = crypto.randomUUID();
+    const chatId = generateId();
     
     await ctx.db.insert('chats', {
       id: chatId,
