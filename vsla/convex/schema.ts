@@ -3,6 +3,9 @@ import { v } from 'convex/values';
 
 export default defineSchema({
   users: defineTable({
+    // The only identity key used for authorization. It is populated from the
+    // verified WorkOS JWT on the server, never from client-supplied input.
+    tokenIdentifier: v.optional(v.string()),
     id: v.optional(v.string()),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
@@ -17,7 +20,7 @@ export default defineSchema({
     locked: v.optional(v.boolean()),
     createdAt: v.optional(v.string()),
     updatedAt: v.optional(v.string()),
-  }),
+  }).index('by_tokenIdentifier', ['tokenIdentifier']),
 
   groups: defineTable({
     id: v.optional(v.string()),
@@ -27,7 +30,7 @@ export default defineSchema({
     description: v.optional(v.string()),
     createdAt: v.optional(v.string()),
     updatedAt: v.optional(v.string()),
-  }),
+  }).index('by_groupAdminId', ['groupAdminId']),
 
   loans: defineTable({
     id: v.optional(v.string()),
@@ -47,7 +50,7 @@ export default defineSchema({
     approvedAt: v.optional(v.string()),
     itemId: v.optional(v.string()),
     itemName: v.optional(v.string()),
-  }),
+  }).index('by_groupId', ['groupId']),
 
   fines: defineTable({
     id: v.optional(v.string()),
@@ -58,7 +61,7 @@ export default defineSchema({
     status: v.optional(v.string()),
     createdAt: v.optional(v.string()),
     paidAt: v.optional(v.string()),
-  }),
+  }).index('by_groupId', ['groupId']),
 
   savings: defineTable({
     id: v.optional(v.string()),
@@ -69,7 +72,7 @@ export default defineSchema({
     week: v.optional(v.string()),
     createdAt: v.optional(v.string()),
     updatedAt: v.optional(v.string()),
-  }),
+  }).index('by_groupId', ['groupId']),
 
   items: defineTable({
     id: v.optional(v.string()),
@@ -81,7 +84,7 @@ export default defineSchema({
     borrowedBy: v.optional(v.string()),
     createdAt: v.optional(v.string()),
     updatedAt: v.optional(v.string()),
-  }),
+  }).index('by_groupId', ['groupId']),
 
   safeCodes: defineTable({
     id: v.optional(v.string()),
@@ -99,7 +102,7 @@ export default defineSchema({
     senderName: v.optional(v.string()),
     message: v.optional(v.string()),
     createdAt: v.optional(v.string()),
-  }),
+  }).index('by_groupId', ['groupId']),
 
   notes: defineTable({
     id: v.optional(v.string()),

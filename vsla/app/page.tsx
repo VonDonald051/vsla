@@ -2,25 +2,18 @@
 
 import { Authenticated, Unauthenticated, useMutation, useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
-import Link from 'next/link';
 import { useAuth } from '@workos-inc/authkit-nextjs/components';
 import { useEffect } from 'react';
 import type { User } from '@workos-inc/node';
+import { GroupManager } from '@/components/GroupManager';
 
 export default function Home() {
   const { user, signOut } = useAuth();
-  const upsertUser = useMutation(api.myFunctions.upsertUserFromWorkOS);
+  const upsertUser = useMutation(api.myFunctions.upsertCurrentUser);
 
-  // Persist user data to Convex database when authenticated
   useEffect(() => {
-    if (user && user.email) {
-      upsertUser({
-        workosId: user.id || '',
-        email: user.email,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        profilePicture: user.profilePictureUrl || undefined,
-      }).catch((error) => {
+    if (user) {
+      upsertUser({}).catch((error) => {
         console.error('Failed to upsert user:', error);
       });
     }
@@ -28,11 +21,17 @@ export default function Home() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-background p-4 border-b-2 border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
-        <h1>VSLA - Village Savings & Loan Association</h1>
-        {user && <UserMenu user={user} onSignOut={signOut} />}
+      <header className="sticky top-0 z-10 bg-slate-950 text-white px-6 py-4 shadow-sm">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">VSLA</p>
+            <h1 className="text-xl font-bold">Village Savings & Loan Association</h1>
+          </div>
+          {user && <UserMenu user={user} onSignOut={signOut} />}
+        </div>
       </header>
-      <main className="p-8 flex flex-col gap-8">
+
+      <main className="mx-auto max-w-6xl p-6 md:p-8">
         <Authenticated>
           <Dashboard />
         </Authenticated>
@@ -46,20 +45,26 @@ export default function Home() {
 
 function SignInForm() {
   return (
-    <div className="flex flex-col gap-8 w-96 mx-auto py-16">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold mb-4">Welcome to VSLA</h2>
-        <p className="text-gray-600 mb-8">Village Savings & Loan Association Management System</p>
-        <p className="mb-8">Log in to manage your groups, loans, and savings</p>
+    <div className="mx-auto flex max-w-xl flex-col gap-8 py-20 text-center">
+      <div>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600">
+          Welcome back
+        </p>
+        <h2 className="text-4xl font-bold text-slate-900">Manage your VSLA with confidence</h2>
       </div>
-      <div className="flex gap-4">
-        <a href="/sign-in" className="flex-1">
-          <button className="w-full bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700">
+
+      <p className="text-lg text-slate-600">
+        Track group savings, record loans, monitor contributions, and keep your members aligned.
+      </p>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <a href="/sign-in" className="block">
+          <button className="w-full rounded-xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-700">
             Sign In
           </button>
         </a>
-        <a href="/sign-up" className="flex-1">
-          <button className="w-full bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700">
+        <a href="/sign-up" className="block">
+          <button className="w-full rounded-xl bg-emerald-600 px-5 py-3 text-base font-semibold text-white transition hover:bg-emerald-500">
             Sign Up
           </button>
         </a>
@@ -70,66 +75,40 @@ function SignInForm() {
 
 function Dashboard() {
   const { user } = useAuth();
-  const userData = useQuery(api.myFunctions.getCurrentUser, {
-    email: user?.email || '',
-  });
-  
-  const groups = useQuery(api.myFunctions.getUserGroups, {
-    userId: userData?.id || '',
-  });
+  const userData = useQuery(api.myFunctions.getCurrentUser, {});
+
+  const groups = useQuery(api.myFunctions.getUserGroups, userData ? {} : 'skip');
 
   if (userData === undefined || groups === undefined) {
-    return <div className="text-center py-8">Loading...</div>;
+    return <div className="py-16 text-center text-slate-600">Loading dashboard...</div>;
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold">Welcome, {userData?.firstName || 'User'}!</h2>
-        <p className="text-gray-600">Your data is permanently saved in the database</p>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm uppercase tracking-[0.2em] text-emerald-600">Overview</p>
+          <h2 className="text-3xl font-bold text-slate-900">
+            Welcome back, {userData?.firstName || 'Member'}
+          </h2>
+        </div>
+        <p className="text-sm text-slate-600">
+          Your VSLA operations are stored in Convex and synced in real time.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <Card title="My Groups" count={groups?.length || 0} />
-        <Card title="Account Status" value="Active" />
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-xl font-bold mb-4">Your Groups</h3>
-        {groups && groups.length > 0 ? (
-          <div className="space-y-4">
-            {groups.map((group) => (
-              <div key={group.id} className="border rounded p-4">
-                <h4 className="font-semibold">{group.name}</h4>
-                <p className="text-sm text-gray-600">{group.description}</p>
-                <p className="text-sm mt-2">Max Members: {group.maxMembers}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-600">No groups yet. Create one to get started!</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Card({ title, count, value }: { title: string; count?: number; value?: string }) {
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <p className="text-gray-600 text-sm">{title}</p>
-      <p className="text-3xl font-bold">{count !== undefined ? count : value}</p>
+      <GroupManager />
     </div>
   );
 }
 
 function UserMenu({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   return (
-    <div className="flex items-center gap-4">
-      <span className="text-sm">{user.email}</span>
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-slate-200">{user.email}</span>
       <button
         onClick={() => onSignOut()}
-        className="bg-red-600 text-white px-3 py-2 rounded-md text-sm hover:bg-red-700"
+        className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-200"
       >
         Sign Out
       </button>

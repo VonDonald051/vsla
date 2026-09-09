@@ -3,14 +3,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { useAuth } from '@workos-inc/authkit-nextjs/components';
 
-/**
- * Example component showing how to create and manage groups
- * This demonstrates permanent data persistence with Convex
- */
 export function GroupManager() {
-  const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -18,20 +12,11 @@ export function GroupManager() {
     maxMembers: 50,
   });
 
-  // Get current user data
-  const userData = useQuery(api.myFunctions.getCurrentUser, {
-    email: user?.email || '',
-  });
+  const userData = useQuery(api.myFunctions.getCurrentUser, {});
 
-  // Get all groups for current user
-  const groups = useQuery(api.myFunctions.getUserGroups, {
-    userId: userData?.id || '',
-  });
+  const groups = useQuery(api.myFunctions.getUserGroups, userData ? {} : 'skip');
 
-  // Mutations for creating and managing data
   const createGroup = useMutation(api.myFunctions.createGroup);
-  const createLoan = useMutation(api.myFunctions.createLoan);
-  const createSavings = useMutation(api.myFunctions.createSavings);
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,15 +29,13 @@ export function GroupManager() {
     try {
       await createGroup({
         name: formData.name,
-        groupAdminId: userData.id,
         description: formData.description,
         maxMembers: formData.maxMembers,
       });
 
-      // Reset form
       setFormData({ name: '', description: '', maxMembers: 50 });
       setShowForm(false);
-      alert('Group created successfully! Data is permanently saved.');
+      alert('Group created successfully.');
     } catch (error) {
       console.error('Failed to create group:', error);
       alert('Failed to create group');
@@ -130,9 +113,6 @@ export function GroupManager() {
                 </button>
               </div>
 
-              <p className="text-sm text-green-600">
-                ✓ Data will be permanently saved to Convex database
-              </p>
             </div>
           </form>
         )}

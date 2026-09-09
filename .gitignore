@@ -1,4 +1,6 @@
 .cache
 /.npm
 node_modules
+.next
 .env.local
+uploads/
